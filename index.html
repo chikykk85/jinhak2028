@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>2학년 진학 상담관리</title>
+  <!-- 버전: 2026-10-30 23:33 (로그인 위치, 표 머리글 가운데) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
   <style>
@@ -44,29 +45,33 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    /* 휴대폰 화면: 지원전형·합격가능성은 축약 표시, 눌렀을 때 전체 명칭 */
+    /* 휴대폰·폴드·태블릿 화면(1024px 미만): 지원전형·수능최저·합격가능성은 축약 표시, 눌렀을 때 전체 명칭 */
     .short-select-wrap { position: relative; }
     .short-label { display: none; }
-    @media (max-width: 639px) {
+    @media screen and (max-width: 1023px) {
       .short-select {
         color: transparent !important;
         -webkit-appearance: none; appearance: none;
-        padding-right: 1.6rem !important;
+        padding-right: 1.1rem !important;
+        padding-left: 0.4rem !important;
       }
       .short-select option { color: #1e293b; }
       .short-label {
         display: flex; align-items: center;
-        position: absolute; top: 0; bottom: 0; left: 0; right: 1.4rem;
-        padding-left: 0.75rem; pointer-events: none;
-        font-size: 0.875rem; font-weight: 600; color: #1e293b;
+        position: absolute; top: 0; bottom: 0; left: 0; right: 1rem;
+        padding-left: 0.45rem; pointer-events: none;
+        font-size: 0.78rem; font-weight: 600; color: #1e293b; letter-spacing: -0.02em;
         white-space: nowrap; overflow: hidden;
       }
       .short-arrow {
-        display: flex; align-items: center; position: absolute; top: 0; bottom: 0; right: 0.6rem;
-        pointer-events: none; color: #64748b; font-size: 0.7rem;
+        display: flex; align-items: center; position: absolute; top: 0; bottom: 0; right: 0.35rem;
+        pointer-events: none; color: #64748b; font-size: 0.55rem;
       }
     }
-    @media (min-width: 640px) { .short-arrow { display: none; } }
+    @media screen and (min-width: 640px) and (max-width: 1023px) {
+      .short-label { font-size: 0.82rem; padding-left: 0.45rem; }
+    }
+    @media print, screen and (min-width: 1024px) { .short-arrow { display: none; } }
     /* 컴퓨터 화면: 상담 화면은 창 높이에 맞추고 학생목록·상담카드를 각각 스크롤 */
     @media screen and (min-width: 1024px) {
       body.lock-viewport { height: 100vh; overflow: hidden; }
@@ -121,7 +126,7 @@
   <div id="modal-root"></div>
 
   <!-- 토스트 알림 -->
-  <div id="toast" class="fixed bottom-5 right-5 z-[100] transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none no-print">
+  <div id="toast" style="z-index:9999" class="fixed bottom-5 right-5 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none no-print">
     <div id="toast-content" class="bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium">
       <span id="toast-msg">알림</span>
     </div>
@@ -944,7 +949,7 @@
 
     function renderLoginView() {
       return `
-        <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
+        <div class="min-h-screen flex items-start justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4 pb-4 pt-[10vh]">
           <div class="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
             <div class="bg-indigo-600 px-8 py-7 text-white">
               <div class="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/40 rounded-full text-xs font-semibold mb-3 border border-indigo-400/30">
@@ -975,6 +980,7 @@
               <button type="submit" id="login-btn" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition duration-150">
                 로그인
               </button>
+              <p class="text-center text-[11px] text-slate-300">버전 10.30-2338</p>
             </form>
           </div>
         </div>
@@ -985,7 +991,7 @@
       if (!state.showPasswordModal || !state.currentUser) return '';
       const isForced = state.currentUser.mustChangePassword;
       return `
-        <div class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 no-print">
+        <div style="z-index:60" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 no-print">
           <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden">
             <div class="bg-amber-500 px-6 py-4 text-white flex items-center justify-between">
               <div class="flex items-center gap-2">
@@ -1406,30 +1412,30 @@
                     </div>
 
                     <div class="space-y-3 sm:space-y-0 sm:rounded-xl sm:border sm:border-slate-200 sm:divide-y sm:divide-slate-200">
-                      <div class="hidden sm:grid grid-cols-[56px_1fr_1fr_120px_120px_190px] gap-3 px-3 py-3 bg-slate-50 rounded-t-xl text-xs font-bold text-slate-600">
+                      <div class="hidden sm:grid sm:grid-cols-[2.6rem_1fr_1fr_4rem_5.6rem_6.6rem] lg:grid-cols-[56px_1fr_1fr_120px_120px_190px] gap-2 lg:gap-3 px-3 py-3 bg-slate-50 rounded-t-xl text-[11px] lg:text-xs font-bold text-slate-600 whitespace-nowrap text-center">
                         <div class="text-center">지망</div>
-                        <div>지원 희망 대학교</div>
-                        <div>희망 학과(학부/전공)</div>
-                        <div>지원 전형</div>
+                        <div><span class="lg:hidden">대학교</span><span class="hidden lg:inline">지원 희망 대학교</span></div>
+                        <div><span class="lg:hidden">학과</span><span class="hidden lg:inline">희망 학과(학부/전공)</span></div>
+                        <div><span class="lg:hidden">전형</span><span class="hidden lg:inline">지원 전형</span></div>
                         <div>수능 최저</div>
                         <div>합격 가능성</div>
                       </div>
                       ${record.applications.map((app, i) => `
-                        <div class="grid grid-cols-2 gap-2 p-3 rounded-xl border border-slate-200 bg-white sm:border-0 sm:rounded-none sm:grid-cols-[56px_1fr_1fr_120px_120px_190px] sm:gap-3 sm:items-center sm:px-3 sm:py-2.5 hover:bg-slate-50/70">
-                          <div class="col-span-2 sm:col-span-1 font-bold text-indigo-700 sm:text-center whitespace-nowrap text-sm">${i + 1}지망</div>
-                          <div>
+                        <div class="grid grid-cols-8 gap-x-1.5 gap-y-2 p-3 rounded-xl border border-slate-200 bg-white sm:border-0 sm:rounded-none sm:grid-cols-[2.6rem_1fr_1fr_4rem_5.6rem_6.6rem] lg:grid-cols-[56px_1fr_1fr_120px_120px_190px] sm:gap-2 lg:gap-3 sm:items-center sm:px-3 sm:py-2.5 hover:bg-slate-50/70">
+                          <div class="col-span-8 sm:col-span-1 font-bold text-indigo-700 sm:text-center whitespace-nowrap text-sm">${i + 1}지망</div>
+                          <div class="col-span-4 sm:col-span-1">
                             <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">대학교</label>
                             <input type="text" id="f-univ-${i}" value="${escapeHtml(app.university)}"
                               placeholder="예: 강원대학교"
                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm" />
                           </div>
-                          <div>
+                          <div class="col-span-4 sm:col-span-1">
                             <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">학과</label>
                             <input type="text" id="f-dept-${i}" value="${escapeHtml(app.department)}"
                               placeholder="예: 수학교육과"
                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm" />
                           </div>
-                          <div>
+                          <div class="col-span-2 sm:col-span-1 min-w-0">
                             <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">전형</label>
                             <div class="short-select-wrap">
                               <select id="f-type-${i}" onchange="syncShortLabel(this)" class="short-select w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-medium bg-white">
@@ -1441,15 +1447,19 @@
                               <span class="short-arrow">▼</span>
                             </div>
                           </div>
-                          <div>
+                          <div class="col-span-3 sm:col-span-1 min-w-0">
                             <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">수능 최저</label>
-                            <select id="f-min-${i}" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-semibold bg-white">
-                              ${MINIMUM_OPTIONS.map(opt => `
-                                <option value="${opt.v}" ${app.minimum === opt.v ? 'selected' : ''}>${opt.label}</option>
-                              `).join('')}
-                            </select>
+                            <div class="short-select-wrap">
+                              <select id="f-min-${i}" onchange="syncShortLabel(this)" class="short-select w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-semibold bg-white">
+                                ${MINIMUM_OPTIONS.map(opt => `
+                                  <option value="${opt.v}" ${app.minimum === opt.v ? 'selected' : ''}>${opt.label}</option>
+                                `).join('')}
+                              </select>
+                              <span class="short-label" data-short-for="f-min-${i}">${minimumShort(app.minimum)}</span>
+                              <span class="short-arrow">▼</span>
+                            </div>
                           </div>
-                          <div class="col-span-2 sm:col-span-1">
+                          <div class="col-span-3 sm:col-span-1 min-w-0">
                             <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">합격 가능성</label>
                             <div class="short-select-wrap">
                               <select id="f-poss-${i}" onchange="syncShortLabel(this)" class="short-select w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-semibold bg-white">
@@ -1583,11 +1593,17 @@
 
     function possibilityShort(v) {
       const opt = POSSIBILITY_OPTIONS.find(o => o.v === v);
-      return opt ? opt.label.replace(/\s*\(.*\)\s*$/, '') : v;
+      return opt ? opt.label.replace(/\s*\(.*\)\s*$/, '').replace(/\/.*$/, '') : v;
+    }
+
+    function minimumShort(v) {
+      return { '': '선택', '최저없음': '없음', '충족': '✅충족', '불확실': '⚠️불확실', '미충족': '❌미충족' }[v] || '선택';
     }
 
     function shortLabelFor(selectId, value) {
-      return selectId.startsWith('f-type-') ? (ADMISSION_SHORT[value] || value) : possibilityShort(value);
+      if (selectId.startsWith('f-type-')) return ADMISSION_SHORT[value] || value;
+      if (selectId.startsWith('f-min-')) return minimumShort(value);
+      return possibilityShort(value);
     }
 
     function syncShortLabel(sel) {
