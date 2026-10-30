@@ -1490,7 +1490,7 @@
 
         const gradeSummary = (g.g1_1 || g.g1_2 || g.g2_1 || g.g2_2 || g.overall)
           ? `<div class="text-[11px] font-semibold text-indigo-600 truncate mt-0.5">
-               내신: ${g.g1_1 || '-'} / ${g.g1_2 || '-'} / ${g.g2_1 || '-'} / <span class="text-amber-700">${g.g2_2 || '-'}(예상)</span> <b class="text-indigo-800">(전학년 ${g.overall || '-'})</b>
+               전학년 내신 <b class="text-indigo-800">${g.overall || '-'}</b>
              </div>`
           : `<div class="text-[11px] text-slate-400 mt-0.5">성적 정보 없음</div>`;
 
@@ -1503,7 +1503,7 @@
               </span>
               <div class="truncate">
                 <div class="font-bold text-sm text-slate-800 truncate">
-                  ${st.name} <span class="text-xs font-medium text-slate-500">(${st.classNum}반 ${st.studentNum}번)</span>
+                  ${escapeHtml(st.name)}
                 </div>
                 ${gradeSummary}
                 <div class="text-xs text-slate-500 truncate">
