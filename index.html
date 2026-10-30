@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2학년 진학 상담관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background-color: #f3f4f6;
+    }
+    .print-only { display: none; }
+    @media print {
+      @page { size: A4 portrait; margin: 12mm; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      html, body, #app, .workspace-wrapper, .main-panel {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        background-color: white !important;
+        display: block !important;
+      }
+      .print-container {
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      select {
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        border: none !important;
+        background: transparent !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    /* 휴대폰 화면: 지원전형·합격가능성은 축약 표시, 눌렀을 때 전체 명칭 */
+    .short-select-wrap { position: relative; }
+    .short-label { display: none; }
+    @media (max-width: 639px) {
+      .short-select {
+        color: transparent !important;
+        -webkit-appearance: none; appearance: none;
+        padding-right: 1.6rem !important;
+      }
+      .short-select option { color: #1e293b; }
+      .short-label {
+        display: flex; align-items: center;
+        position: absolute; top: 0; bottom: 0; left: 0; right: 1.4rem;
+        padding-left: 0.75rem; pointer-events: none;
+        font-size: 0.875rem; font-weight: 600; color: #1e293b;
+        white-space: nowrap; overflow: hidden;
+      }
+      .short-arrow {
+        display: flex; align-items: center; position: absolute; top: 0; bottom: 0; right: 0.6rem;
+        pointer-events: none; color: #64748b; font-size: 0.7rem;
+      }
+    }
+    @media (min-width: 640px) { .short-arrow { display: none; } }
+    /* 컴퓨터 화면: 상담 화면은 창 높이에 맞추고 학생목록·상담카드를 각각 스크롤 */
+    @media screen and (min-width: 1024px) {
+      body.lock-viewport { height: 100vh; overflow: hidden; }
+      body.lock-viewport #app { min-height: 0; overflow: hidden; }
+      body.lock-viewport .workspace-wrapper { min-height: 0; }
+      body.lock-viewport #student-drawer { min-height: 0; }
+    }
+    @media print { .short-label, .short-arrow { display: none !important; } }
+  </style>
+  <!-- ============================================================
+       Firebase 설정 — Firebase 콘솔 → 프로젝트 설정 → 내 앱(웹 앱)의
+       firebaseConfig 값을 아래에 그대로 붙여 넣으세요. (README 2단계)
+       이 값은 공개되어도 괜찮습니다. 데이터 보호는 firestore.rules 가 담당합니다.
+       ============================================================ -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword,
+      reauthenticateWithCredential, EmailAuthProvider, setPersistence, browserSessionPersistence
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, setDoc, onSnapshot, query, where, writeBatch
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCe_6jnzS5GmLSDjNI2Fy88u9ZX1uWsxb0",
+      authDomain: "jinhak2028.firebaseapp.com",
+      projectId: "jinhak2028",
+      storageBucket: "jinhak2028.firebasestorage.app",
+      messagingSenderId: "682376575964",
+      appId: "1:682376575964:web:bc4b0c7c100b4290362d19"
+    };
+
+    if (String(firebaseConfig.apiKey).startsWith('여기에')) {
+      window.fbConfigMissing = true;
+    } else {
+      const app = initializeApp(firebaseConfig);
+      window.fb = {
+        auth: getAuth(app), db: getFirestore(app),
+        signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword,
+        reauthenticateWithCredential, EmailAuthProvider, setPersistence, browserSessionPersistence,
+        collection, doc, setDoc, onSnapshot, query, where, writeBatch
+      };
+    }
+    window.onFirebaseReady && window.onFirebaseReady();
+  </script>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- 앱 컨테이너 -->
+  <div id="app" class="flex-1 flex flex-col"></div>
+  <div id="modal-root"></div>
+
+  <!-- 토스트 알림 -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none no-print">
+    <div id="toast-content" class="bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium">
+      <span id="toast-msg">알림</span>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // 1. 계정 목록 (이름 → 로그인 이메일)
+    //    Firebase 콘솔 → Authentication 에 아래 이메일로 사용자를 만들어 주세요.
+    //    관리자 이메일을 바꾸면 firestore.rules 의 ADMIN 이메일도 똑같이 바꿔야 합니다.
+    //    ※ 학생 성적·명단은 이 파일에 넣지 않습니다. (관리자가 로그인 후 업로드 → Firestore 저장)
+    // ============================================================
+    const ADMIN_EMAIL = 'jinhak.admin@example.com';
+    const TEACHER_DIRECTORY = [
+      { email: 'jinhak.admin@example.com',  role: 'admin',   classNum: 0, name: '윤원석' },
+      { email: 'jinhak.class1@example.com', role: 'teacher', classNum: 1, name: '이준우' },
+      { email: 'jinhak.class2@example.com', role: 'teacher', classNum: 2, name: '김혜경' },
+      { email: 'jinhak.class3@example.com', role: 'teacher', classNum: 3, name: '정수현' },
+      { email: 'jinhak.class4@example.com', role: 'teacher', classNum: 4, name: '최순학' },
+      { email: 'jinhak.class5@example.com', role: 'teacher', classNum: 5, name: '박성훈' },
+      { email: 'jinhak.class6@example.com', role: 'teacher', classNum: 6, name: '민선영' },
+      { email: 'jinhak.class7@example.com', role: 'teacher', classNum: 7, name: '김효진' },
+      { email: 'jinhak.class8@example.com', role: 'teacher', classNum: 8, name: '이헌종' },
+      { email: 'jinhak.class9@example.com', role: 'teacher', classNum: 9, name: '이창호' }
+    ];
+
+    // Firestore 에서 불러오는 학생 명단 (학번순)
+    let STUDENTS = [];
+
+    const ADMISSION_TYPES = ['학생부교과', '학생부종합', '논술', '실기/실적'];
+
+    const POSSIBILITY_OPTIONS = [
+      { v: '매우안정', label: '🟢 매우안정 (90% 이상)' },
+      { v: '안정', label: '🟢 안정 (70~80%)' },
+      { v: '적정', label: '🔵 적정 (50~60%)' },
+      { v: '소신', label: '🟡 소신 (30~40%)' },
+      { v: '상향', label: '🟠 상향 (20% 이하)' },
+      { v: '위험', label: '🔴 우주상향/위험' }
+    ];
+
+    // 2. 상태 관리
+    let state = {
+      teachers: TEACHER_DIRECTORY.map(t => ({ ...t })),
+      records: {},
+      currentUser: null,
+      selectedClassFilter: 'all',
+      searchQuery: '',
+      statusFilter: 'all', // 'all', 'completed', 'pending'
+      selectedStudentId: null,
+      activeAdminTab: 'counseling',
+      showPasswordModal: false,
+      isFormDirty: false, // 저장하지 않은 수정사항 감지 플래그
+      mobileListOpen: false, // 휴대폰 화면 학생목록 열림 여부
+      univFilter: '', // 관리자 희망대학별 조회 선택값
+      authChecked: false, // Firebase 로그인 상태 확인 완료 여부
+      dataLoaded: false, // 학생·상담 데이터 첫 불러오기 완료 여부
+      loadError: '', // 데이터 불러오기 오류 메시지
+      unsubscribers: [] // 실시간 구독 해제 함수 목록
+    };
+
+    function normalizeAdmissionType(val) {
+      if (!val) return '학생부교과';
+      if (ADMISSION_TYPES.includes(val)) return val;
+      if (val.includes('교과')) return '학생부교과';
+      if (val.includes('종합')) return '학생부종합';
+      if (val.includes('논술')) return '논술';
+      if (val.includes('실기') || val.includes('실적')) return '실기/실적';
+      return '학생부교과';
+    }
+
+    function normalizePossibility(val) {
+      if (!val) return '적정';
+      if (POSSIBILITY_OPTIONS.some(o => o.v === val)) return val;
+      return '적정';
+    }
+
+    function createEmptyRecord(studentId) {
+      return {
+        studentId: studentId,
+        careerHope: '',
+        careerReason: '',
+        consultDate: new Date().toISOString().split('T')[0],
+        status: 'pending', // 'pending' | 'completed'
+        applications: Array.from({ length: 6 }, (_, i) => ({
+          order: i + 1,
+          university: '',
+          department: '',
+          admissionType: '학생부교과',
+          possibility: '적정'
+        })),
+        studentThought: '',
+        teacherComment: '',
+        updatedAt: null,
+        updatedBy: ''
+      };
+    }
+
+    // 상담완료 조건: 희망진로 + 수시 지원 1개 이상 + 학생의 생각 + 담임교사 총평
+    function getMissingItems(rec) {
+      const missing = [];
+      if (!String(rec.careerHope || '').trim()) missing.push('희망 진로/직업군');
+      const apps = Array.isArray(rec.applications) ? rec.applications : [];
+      if (!apps.some(a => String(a.university || '').trim())) missing.push('수시 지원 계획(1개 이상)');
+      if (!String(rec.studentThought || '').trim()) missing.push('지원 전략에 대한 학생의 생각');
+      if (!String(rec.teacherComment || '').trim()) missing.push('담임교사 총평');
+      return missing;
+    }
+
+    // 'completed' = 상담완료, 'partial' = 작성중(저장했지만 필수 항목 부족), 'pending' = 미입력
+    function computeStatus(rec, hasSaved) {
+      if (!hasSaved) return 'pending';
+      return getMissingItems(rec).length === 0 ? 'completed' : 'partial';
+    }
+
+    function sanitizeRecord(rec, studentId) {
+      const base = createEmptyRecord(studentId);
+      if (!rec || typeof rec !== 'object') return base;
+      const apps = Array.from({ length: 6 }, (_, i) => {
+        const src = Array.isArray(rec.applications) && rec.applications[i] ? rec.applications[i] : {};
+        return {
+          order: i + 1,
+          university: src.university ? String(src.university) : '',
+          department: src.department ? String(src.department) : '',
+          admissionType: normalizeAdmissionType(src.admissionType),
+          possibility: normalizePossibility(src.possibility)
+        };
+      });
+      const out = {
+        studentId: studentId,
+        careerHope: rec.careerHope ? String(rec.careerHope) : '',
+        careerReason: rec.careerReason ? String(rec.careerReason) : '',
+        consultDate: rec.consultDate || base.consultDate,
+        status: 'pending', // 아래에서 내용으로 다시 계산
+        applications: apps,
+        studentThought: rec.studentThought ? String(rec.studentThought) : '',
+        teacherComment: rec.teacherComment ? String(rec.teacherComment) : '',
+        updatedAt: rec.updatedAt || null,
+        updatedBy: rec.updatedBy || ''
+      };
+      out.status = computeStatus(out, !!(rec.updatedAt || rec.status === 'completed'));
+      return out;
+    }
+
+    // ============================================================
+    // Firebase 연결 · 로그인 상태 · 실시간 동기화
+    // ============================================================
+    window.onFirebaseReady = function () {
+      if (window.fbConfigMissing) {
+        state.authChecked = true;
+        render();
+        return;
+      }
+      fb.onAuthStateChanged(fb.auth, user => { handleAuthChange(user); });
+    };
+
+    function stopListeners() {
+      state.unsubscribers.forEach(u => { try { u(); } catch (e) {} });
+      state.unsubscribers = [];
+    }
+
+    function normalizeStudent(id, d) {
+      return {
+        id,
+        classNum: Number(d.classNum),
+        studentNum: Number(d.studentNum),
+        name: String(d.name || ''),
+        grades: d.grades || {}
+      };
+    }
+
+    function firebaseErrorText(err) {
+      const code = (err && err.code) || '';
+      if (code === 'permission-denied') return '권한이 없습니다. 관리자가 초기 설정(학생 명단 업로드)을 먼저 해야 하거나, 보안 규칙이 게시되지 않았습니다.';
+      if (code === 'unavailable') return '서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.';
+      return (err && err.message) ? err.message : String(err);
+    }
+
+    async function handleAuthChange(user) {
+      stopListeners();
+      state.authChecked = true;
+      state.loadError = '';
+      state.dataLoaded = false;
+      STUDENTS = [];
+      state.records = {};
+      state.isFormDirty = false;
+
+      if (!user) {
+        state.currentUser = null;
+        state.selectedStudentId = null;
+        state.showPasswordModal = false;
+        render();
+        return;
+      }
+
+      const email = String(user.email || '').toLowerCase();
+      const dir = TEACHER_DIRECTORY.find(t => t.email === email);
+      if (!dir) {
+        showToast('프로그램에 등록되지 않은 계정입니다.', 'error');
+        await fb.signOut(fb.auth);
+        return;
+      }
+
+      state.currentUser = { ...dir, mustChangePassword: false, pwUpdatedAt: '' };
+      state.selectedClassFilter = dir.role === 'teacher' ? dir.classNum : 'all';
+      state.activeAdminTab = 'counseling';
+      render();
+      startListeners();
+    }
+
+    function startListeners() {
+      const u = state.currentUser;
+      const isAdmin = u.role === 'admin';
+      let gotStudents = false, gotRecords = false;
+
+      const finishFirstLoad = () => {
+        if (gotStudents && gotRecords && !state.dataLoaded) {
+          state.dataLoaded = true;
+          const list = getFilteredStudents();
+          state.selectedStudentId = list.length ? list[0].id : null;
+          render();
+        }
+      };
+      const onErr = (err) => {
+        console.error(err);
+        state.loadError = firebaseErrorText(err);
+        render();
+      };
+
+      const studentsRef = fb.collection(fb.db, 'students');
+      const recordsRef = fb.collection(fb.db, 'records');
+      const stuQ = isAdmin ? studentsRef : fb.query(studentsRef, fb.where('classNum', '==', u.classNum));
+      const recQ = isAdmin ? recordsRef : fb.query(recordsRef, fb.where('classNum', '==', u.classNum));
+
+      // 학생 명단·성적
+      state.unsubscribers.push(fb.onSnapshot(stuQ, snap => {
+        STUDENTS = snap.docs.map(d => normalizeStudent(d.id, d.data()))
+          .sort((a, b) => (a.classNum - b.classNum) || (a.studentNum - b.studentNum));
+        gotStudents = true;
+        if (state.dataLoaded) refreshAfterRemoteChange(null, false); else finishFirstLoad();
+      }, onErr));
+
+      // 상담 기록 (다른 선생님이 저장하면 바로 반영)
+      state.unsubscribers.push(fb.onSnapshot(recQ, snap => {
+        const changed = [];
+        snap.docChanges().forEach(ch => {
+          if (ch.type === 'removed') delete state.records[ch.doc.id];
+          else state.records[ch.doc.id] = sanitizeRecord(ch.doc.data(), ch.doc.id);
+          changed.push(ch.doc.id);
+        });
+        gotRecords = true;
+        if (state.dataLoaded) refreshAfterRemoteChange(changed, snap.metadata.hasPendingWrites); else finishFirstLoad();
+      }, onErr));
+
+      // 교사 계정 상태 (관리자: 전체 / 담임: 본인)
+      if (isAdmin) {
+        state.unsubscribers.push(fb.onSnapshot(fb.collection(fb.db, 'teachers'), snap => {
+          const map = {};
+          snap.docs.forEach(d => { map[d.id] = d.data(); });
+          state.teachers = TEACHER_DIRECTORY.map(t => ({ ...t, ...(map[t.email] || {}), exists: !!map[t.email] }));
+          if (state.dataLoaded && !state.isFormDirty && state.activeAdminTab !== 'counseling') render();
+        }, err => console.warn(err)));
+      }
+      state.unsubscribers.push(fb.onSnapshot(fb.doc(fb.db, 'teachers', u.email), d => {
+        const data = d.exists() ? d.data() : {};
+        if (!state.currentUser) return;
+        state.currentUser.mustChangePassword = data.mustChangePassword === true;
+        state.currentUser.pwUpdatedAt = data.pwUpdatedAt || '';
+        if (state.currentUser.mustChangePassword && !state.showPasswordModal) {
+          state.showPasswordModal = true;
+          renderModal();
+        }
+      }, err => console.warn(err)));
+    }
+
+    function refreshAfterRemoteChange(changedIds, pendingWrites) {
+      if (!state.currentUser) return;
+      const selectedChanged = Array.isArray(changedIds) && changedIds.includes(state.selectedStudentId);
+      if (state.isFormDirty) {
+        // 작성 중인 내용은 지우지 않고 목록만 갱신
+        renderStudentListOnly();
+        if (selectedChanged && !pendingWrites) {
+          showToast('다른 선생님이 이 학생의 기록을 수정했습니다. 지금 저장하면 그 내용을 덮어씁니다.', 'info');
+        }
+        return;
+      }
+      render();
+    }
+
+    function readFormForCheck() {
+      const v = id => (document.getElementById(id) || {}).value || '';
+      return {
+        careerHope: v('f-careerHope'),
+        studentThought: v('f-studentThought'),
+        teacherComment: v('f-teacherComment'),
+        applications: [0, 1, 2, 3, 4, 5].map(i => ({ university: v(`f-univ-${i}`) }))
+      };
+    }
+
+    function updateCompletionChecklist() {
+      const box = document.getElementById('completion-checklist');
+      if (!box) return;
+      box.innerHTML = renderCompletionChecklist(getMissingItems(readFormForCheck()));
+    }
+
+    function renderCompletionChecklist(missing) {
+      const items = ['희망 진로/직업군', '수시 지원 계획(1개 이상)', '지원 전략에 대한 학생의 생각', '담임교사 총평'];
+      const done = missing.length === 0;
+      return `
+        <div class="text-xs font-bold ${done ? 'text-emerald-700' : 'text-slate-600'} mb-1.5">
+          ${done ? '✅ 모두 작성했습니다. 저장하면 상담완료로 표시됩니다.' : `상담완료 조건 (${items.length - missing.length}/${items.length})`}
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          ${items.map(it => {
+            const ok = !missing.includes(it);
+            return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold ${ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-white text-slate-500 border border-slate-300'}">${ok ? '✔' : '○'} ${it}</span>`;
+          }).join('')}
+        </div>`;
+    }
+
+    function markFormDirty() {
+      updateCompletionChecklist();
+      state.isFormDirty = true;
+      const unsavedBadge = document.getElementById('unsaved-indicator');
+      if (unsavedBadge) {
+        unsavedBadge.classList.remove('hidden');
+      }
+    }
+
+    function confirmDiscardIfDirty() {
+      if (!state.isFormDirty) return true;
+      return confirm('현재 작성 중인 상담 내용이 아직 저장되지 않았습니다.\n저장하지 않고 이동하시겠습니까?');
+    }
+
+    function selectStudent(studentId) {
+      if (state.selectedStudentId === studentId) { toggleStudentList(false); return; }
+      if (!confirmDiscardIfDirty()) return;
+      state.isFormDirty = false;
+      state.selectedStudentId = studentId;
+      state.mobileListOpen = false;
+      render();
+    }
+
+    function showToast(msg, type = 'info') {
+      const toast = document.getElementById('toast');
+      const content = document.getElementById('toast-content');
+      const msgEl = document.getElementById('toast-msg');
+      msgEl.textContent = msg;
+      
+      content.className = 'px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium ' +
+        (type === 'success' ? 'bg-emerald-600 text-white' :
+         type === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white');
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      if (!window.fb || window.fbConfigMissing) {
+        showToast('Firebase 설정이 아직 입력되지 않았습니다. (README 2단계)', 'error');
+        return;
+      }
+      const inputName = document.getElementById('login-name').value
+        .replace(/\s+/g, '')
+        .replace(/선생님$/, '');
+      const pw = document.getElementById('login-pw').value;
+
+      const account = TEACHER_DIRECTORY.find(t => t.name.replace(/\s+/g, '') === inputName);
+      if (!account) {
+        showToast('등록된 담임교사/관리자 이름이 아닙니다. 성함을 다시 확인해주세요.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('login-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '로그인 중...'; }
+      try {
+        // 브라우저를 닫으면 자동 로그아웃 (학교 공용 PC 대비)
+        await fb.setPersistence(fb.auth, fb.browserSessionPersistence);
+        await fb.signInWithEmailAndPassword(fb.auth, account.email, pw);
+        showToast(`${account.name} 선생님, 환영합니다!`, 'success');
+      } catch (err) {
+        const code = err.code || '';
+        let msg = '로그인에 실패했습니다. (' + code + ')';
+        if (['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(code)) msg = '비밀번호가 일치하지 않습니다.';
+        else if (code === 'auth/user-not-found') msg = '아직 계정이 만들어지지 않았습니다. 관리자에게 문의하세요.';
+        else if (code === 'auth/too-many-requests') msg = '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.';
+        else if (code === 'auth/network-request-failed') msg = '인터넷 연결을 확인해주세요.';
+        else if (code === 'auth/user-disabled') msg = '사용이 중지된 계정입니다. 관리자에게 문의하세요.';
+        showToast(msg, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '로그인'; }
+      }
+    }
+
+    async function handleLogout() {
+      if (!confirmDiscardIfDirty()) return;
+      state.isFormDirty = false;
+      state.showPasswordModal = false;
+      renderModal();
+      await fb.signOut(fb.auth);
+    }
+
+    async function handleChangePassword(e) {
+      e.preventDefault();
+      const curPw = document.getElementById('cur-pw').value;
+      const newPw = document.getElementById('new-pw').value.trim();
+      const confirmPw = document.getElementById('confirm-pw').value.trim();
+
+      if (newPw.length < 6) {
+        showToast('비밀번호는 6자리 이상으로 입력해주세요.', 'error');
+        return;
+      }
+      if (newPw === curPw) {
+        showToast('현재 비밀번호와 다른 새 비밀번호를 입력해주세요.', 'error');
+        return;
+      }
+      if (newPw !== confirmPw) {
+        showToast('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.', 'error');
+        return;
+      }
+
+      const user = fb.auth.currentUser;
+      try {
+        const cred = fb.EmailAuthProvider.credential(user.email, curPw);
+        await fb.reauthenticateWithCredential(user, cred);
+        await fb.updatePassword(user, newPw);
+      } catch (err) {
+        const code = err.code || '';
+        if (['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(code)) showToast('현재 비밀번호가 일치하지 않습니다.', 'error');
+        else if (code === 'auth/weak-password') showToast('비밀번호가 너무 약합니다. 6자리 이상으로 입력해주세요.', 'error');
+        else showToast('비밀번호를 바꾸지 못했습니다. (' + code + ')', 'error');
+        return;
+      }
+
+      try {
+        await fb.setDoc(fb.doc(fb.db, 'teachers', state.currentUser.email),
+          { mustChangePassword: false, pwUpdatedAt: new Date().toLocaleString('ko-KR') }, { merge: true });
+      } catch (err) {
+        console.warn(err);
+      }
+      state.currentUser.mustChangePassword = false;
+      state.showPasswordModal = false;
+      renderModal();
+      showToast('비밀번호가 안전하게 변경되었습니다.', 'success');
+    }
+
+    function openPasswordModal() {
+      state.showPasswordModal = true;
+      renderModal();
+    }
+
+    function closePasswordModal() {
+      state.showPasswordModal = false;
+      renderModal();
+    }
+
+    // 관리자: 특정 교사에게 다음 로그인 때 비밀번호 변경 요구
+    async function requirePasswordChange(email, name) {
+      if (!confirm(`${name} 선생님이 다음 로그인 때 비밀번호를 새로 정하도록 표시할까요?`)) return;
+      try {
+        await fb.setDoc(fb.doc(fb.db, 'teachers', email), { mustChangePassword: true }, { merge: true });
+        showToast(`${name} 선생님 계정에 비밀번호 변경 요구를 표시했습니다.`, 'success');
+      } catch (err) {
+        showToast('처리하지 못했습니다: ' + firebaseErrorText(err), 'error');
+      }
+    }
+
+    function updateGradeTrendDisplay(grades) {
+      const badgeEl = document.getElementById('grade-trend-badge');
+      if (!badgeEl) return;
+
+      // 등급은 숫자가 작을수록 좋음
+      const terms = [
+        { label: '1-1', v: parseFloat(grades.g1_1), exp: false },
+        { label: '1-2', v: parseFloat(grades.g1_2), exp: false },
+        { label: '2-1', v: parseFloat(grades.g2_1), exp: false },
+        { label: '2-2', v: parseFloat(grades.g2_2), exp: true }
+      ].filter(t => !isNaN(t.v));
+
+      if (terms.length < 2) {
+        badgeEl.innerHTML = '';
+        return;
+      }
+
+      const name = t => t.exp ? `${t.label}(예상)` : t.label;
+      const fmt = n => Math.abs(n).toFixed(2);
+      const pill = (cls, txt) => `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${cls}">${txt}</span>`;
+
+      // 학기별 흐름
+      const flow = terms.map((t, i) => {
+        const val = `<b class="${t.exp ? 'text-amber-700' : 'text-slate-800'}">${name(t)} ${t.v.toFixed(2)}</b>`;
+        if (i === 0) return val;
+        const d = t.v - terms[i - 1].v;
+        const arrow = d < -0.05
+          ? `<span class="text-emerald-600 font-bold">▲${fmt(d)}</span>`
+          : d > 0.05 ? `<span class="text-rose-600 font-bold">▼${fmt(d)}</span>`
+          : `<span class="text-slate-400 font-bold">＝</span>`;
+        return `${arrow} ${val}`;
+      }).join(' <span class="text-slate-300">→</span> ');
+
+      // 전체 방향 (첫 학기 대비 마지막 학기)
+      const first = terms[0], last = terms[terms.length - 1];
+      const total = last.v - first.v;
+      let overall;
+      if (total < -0.1) overall = pill('bg-emerald-100 text-emerald-700', `📈 상승세 · ${name(first)} 대비 ${fmt(total)}등급 향상`);
+      else if (total > 0.1) overall = pill('bg-rose-100 text-rose-700', `📉 하락세 · ${name(first)} 대비 ${fmt(total)}등급 하락`);
+      else overall = pill('bg-blue-100 text-blue-700', `➡️ 유지 · ${name(first)} 대비 ${fmt(total)}등급 차이로 큰 변화 없음`);
+
+      // 최근 흐름 (직전 학기 → 마지막 학기)
+      const prev = terms[terms.length - 2];
+      const recent = last.v - prev.v;
+      let recentTxt;
+      if (recent < -0.1) recentTxt = `최근 ${name(prev)} → ${name(last)} 구간에서 ${fmt(recent)}등급 올라 상승 흐름입니다.`;
+      else if (recent > 0.1) recentTxt = `최근 ${name(prev)} → ${name(last)} 구간에서 ${fmt(recent)}등급 내려가 관리가 필요합니다.`;
+      else recentTxt = `최근 ${name(prev)} → ${name(last)} 구간은 큰 변화 없이 비슷합니다.`;
+
+      // 최고·최저 학기와 기복
+      const best = terms.reduce((a, b) => b.v < a.v ? b : a);
+      const worst = terms.reduce((a, b) => b.v > a.v ? b : a);
+      const range = worst.v - best.v;
+      const swing = range >= 0.5 ? '학기별 기복이 큰 편입니다.' : range >= 0.25 ? '학기별 기복이 다소 있습니다.' : '학기별 기복이 작아 안정적입니다.';
+
+      // 방향 전환 여부
+      let turn = '';
+      for (let i = 1; i < terms.length - 1; i++) {
+        const a = terms[i].v - terms[i - 1].v, b = terms[i + 1].v - terms[i].v;
+        if (a > 0.1 && b < -0.1) { turn = `${name(terms[i])}에 내려갔다가 다시 회복했습니다.`; }
+        if (a < -0.1 && b > 0.1) { turn = `${name(terms[i])}까지 오르다가 이후 내려갔습니다.`; }
+      }
+
+      badgeEl.innerHTML = `
+        <div class="space-y-2 p-3 rounded-xl bg-white border border-slate-200">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-bold text-slate-600">성적 추이</span>
+            ${overall}
+          </div>
+          <div class="text-xs text-slate-600 leading-relaxed">${flow}</div>
+          <ul class="text-xs text-slate-600 leading-relaxed list-disc pl-4 space-y-0.5">
+            <li>${recentTxt}</li>
+            <li>가장 좋은 학기는 <b>${name(best)} ${best.v.toFixed(2)}등급</b>, 가장 낮은 학기는 <b>${name(worst)} ${worst.v.toFixed(2)}등급</b>으로 차이는 ${range.toFixed(2)}등급이며, ${swing}</li>
+            ${turn ? `<li>${turn}</li>` : ''}
+          </ul>
+          <div class="text-[11px] text-slate-400">▲ 등급 향상 · ▼ 등급 하락 (직전 학기 대비)</div>
+        </div>`;
+    }
+
+    // 학번순(반 -> 번호) 정렬이 보장된 학생 필터링 함수
+    function getFilteredStudents() {
+      return STUDENTS
+        .filter(st => {
+          if (state.currentUser.role === 'teacher' && st.classNum !== state.currentUser.classNum) {
+            return false;
+          }
+          if (state.currentUser.role === 'admin' && state.selectedClassFilter !== 'all') {
+            if (st.classNum !== Number(state.selectedClassFilter)) return false;
+          }
+          if (state.searchQuery.trim() !== '') {
+            const q = state.searchQuery.trim();
+            const matchName = st.name.includes(q);
+            const matchNum = String(st.studentNum) === q || `${st.classNum}반 ${st.studentNum}번`.includes(q) || st.id.includes(q);
+            if (!matchName && !matchNum) return false;
+          }
+          const rec = state.records[st.id];
+          const status = rec ? rec.status : 'pending';
+          if (state.statusFilter === 'completed' && status !== 'completed') return false;
+          if (state.statusFilter === 'pending' && status === 'completed') return false;
+
+          return true;
+        })
+        .sort((a, b) => (a.classNum - b.classNum) || (a.studentNum - b.studentNum));
+    }
+
+    function getStudentRecord(studentId) {
+      if (!state.records[studentId]) {
+        return createEmptyRecord(studentId);
+      }
+      return sanitizeRecord(state.records[studentId], studentId);
+    }
+
+    async function saveCurrentCounselingForm() {
+      if (!state.selectedStudentId) return;
+      const stId = state.selectedStudentId;
+      const stObj = STUDENTS.find(s => s.id === stId);
+      if (!stObj) return;
+
+      const careerHope = document.getElementById('f-careerHope').value.trim();
+      const careerReason = document.getElementById('f-careerReason').value.trim();
+      const consultDate = document.getElementById('f-consultDate').value;
+      const studentThought = document.getElementById('f-studentThought').value.trim();
+      const teacherComment = document.getElementById('f-teacherComment').value.trim();
+
+      const applications = [];
+      for (let i = 0; i < 6; i++) {
+        applications.push({
+          order: i + 1,
+          university: document.getElementById(`f-univ-${i}`).value.trim(),
+          department: document.getElementById(`f-dept-${i}`).value.trim(),
+          admissionType: document.getElementById(`f-type-${i}`).value,
+          possibility: document.getElementById(`f-poss-${i}`).value
+        });
+      }
+
+      const data = {
+        studentId: stId,
+        classNum: stObj.classNum,
+        careerHope,
+        careerReason,
+        consultDate,
+        status: 'pending',
+        applications,
+        studentThought,
+        teacherComment,
+        updatedAt: new Date().toLocaleString('ko-KR'),
+        updatedBy: state.currentUser.name
+      };
+
+      const missing = getMissingItems(data);
+      data.status = missing.length === 0 ? 'completed' : 'partial';
+
+      state.isFormDirty = false;
+      try {
+        await fb.setDoc(fb.doc(fb.db, 'records', stId), data);
+        if (missing.length === 0) {
+          showToast(`${stObj.name} 학생 상담이 완료되었습니다. ✅`, 'success');
+        } else {
+          showToast(`저장했습니다. 상담완료까지 남은 항목: ${missing.join(', ')}`, 'info');
+        }
+      } catch (err) {
+        console.error(err);
+        markFormDirty();
+        showToast('저장하지 못했습니다: ' + firebaseErrorText(err), 'error');
+      }
+    }
+
+    // 인쇄 시 textarea 줄바꿈 및 전체 내용이 잘리지 않도록 동기화 후 인쇄
+    function handlePrintCard() {
+      ['f-careerReason', 'f-studentThought', 'f-teacherComment'].forEach(id => {
+        const el = document.getElementById(id);
+        const printEl = document.getElementById(id + '-print');
+        if (el && printEl) {
+          printEl.textContent = el.value.trim() || '-';
+        }
+      });
+      window.print();
+    }
+
+    function exportToCSV() {
+      const targetStudents = (state.currentUser.role === 'admin'
+        ? (state.selectedClassFilter === 'all' ? STUDENTS : STUDENTS.filter(s => s.classNum === Number(state.selectedClassFilter)))
+        : STUDENTS.filter(s => s.classNum === state.currentUser.classNum)
+      ).slice().sort((a, b) => (a.classNum - b.classNum) || (a.studentNum - b.studentNum));
+
+      const headers = [
+        '학번', '반', '번호', '이름', '담임교사', '상담상태', '상담일자',
+        '1학년_1학기_등급', '1학년_2학기_등급', '2학년_1학기_등급', '2학년_2학기_예상등급', '전학년_등급(2-2예상포함_평균)',
+        '진로희망', '진로희망사유',
+        '1지망_대학', '1지망_학과', '1지망_전형', '1지망_합격가능성',
+        '2지망_대학', '2지망_학과', '2지망_전형', '2지망_합격가능성',
+        '3지망_대학', '3지망_학과', '3지망_전형', '3지망_합격가능성',
+        '4지망_대학', '4지망_학과', '4지망_전형', '4지망_합격가능성',
+        '5지망_대학', '5지망_학과', '5지망_전형', '5지망_합격가능성',
+        '6지망_대학', '6지망_학과', '6지망_전형', '6지망_합격가능성',
+        '지원전략에_대한_학생생각', '담임교사_총평', '최종수정일시'
+      ];
+
+      const escapeCSV = (val) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const rows = targetStudents.map(st => {
+        const rec = getStudentRecord(st.id);
+        const teacherObj = TEACHER_DIRECTORY.find(t => t.classNum === st.classNum);
+        const teacherName = teacherObj ? teacherObj.name : '';
+        const statusText = rec.status === 'completed' ? '상담완료' : rec.status === 'partial' ? '작성중' : '미입력';
+        const g = st.grades || { g1_1: '', g1_2: '', g2_1: '', g2_2: '', overall: '' };
+
+        const cols = [
+          st.id, st.classNum, st.studentNum, st.name, teacherName, statusText, rec.consultDate || '',
+          g.g1_1, g.g1_2, g.g2_1, g.g2_2, g.overall,
+          rec.careerHope, rec.careerReason
+        ];
+
+        for (let i = 0; i < 6; i++) {
+          const app = rec.applications[i] || { university: '', department: '', admissionType: '', possibility: '' };
+          cols.push(app.university, app.department, app.admissionType, app.possibility);
+        }
+
+        cols.push(rec.studentThought, rec.teacherComment, rec.updatedAt || '');
+        return cols.map(escapeCSV).join(',');
+      });
+
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const prefix = state.currentUser.role === 'admin'
+        ? (state.selectedClassFilter === 'all' ? '2학년전체' : `2학년${state.selectedClassFilter}반`)
+        : `2학년${state.currentUser.classNum}반_${state.currentUser.name}`;
+      a.href = url;
+      a.download = `학생진학상담기록_${prefix}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('엑셀(CSV) 파일이 다운로드되었습니다.', 'success');
+    }
+
+    function exportBackupJSON() {
+      if (!state.currentUser || state.currentUser.role !== 'admin') {
+        showToast('백업 저장은 관리자만 할 수 있습니다.', 'error');
+        return;
+      }
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        students: STUDENTS,
+        records: state.records
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `진학상담시스템_백업데이터_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('데이터 백업 파일(.json)이 저장되었습니다.', 'success');
+    }
+
+    async function commitInChunks(ops) {
+      // ops: [{ ref, data, merge }] — 한 번에 400개씩 나눠 저장
+      for (let i = 0; i < ops.length; i += 400) {
+        const batch = fb.writeBatch(fb.db);
+        ops.slice(i, i + 400).forEach(op => {
+          if (op.merge) batch.set(op.ref, op.data, { merge: true });
+          else batch.set(op.ref, op.data);
+        });
+        await batch.commit();
+      }
+    }
+
+    // 관리자: 학생 명단·성적 JSON 업로드 (처음 한 번 + 성적이 바뀔 때)
+    function uploadStudentsJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const list = JSON.parse(e.target.result);
+          if (!Array.isArray(list) || !list.length) throw new Error('학생 목록이 비어 있습니다.');
+          const bad = list.filter(st => !st.id || !st.name || !Number(st.classNum) || !Number(st.studentNum));
+          if (bad.length) throw new Error(`형식이 맞지 않는 학생이 ${bad.length}명 있습니다.`);
+          if (!confirm(`학생 ${list.length}명의 명단·성적을 올립니다.\n같은 학번이 이미 있으면 성적이 새 값으로 바뀝니다. (상담 기록은 그대로 유지)\n진행할까요?`)) return;
+
+          const ops = list.map(st => ({
+            ref: fb.doc(fb.db, 'students', String(st.id)),
+            data: {
+              classNum: Number(st.classNum),
+              studentNum: Number(st.studentNum),
+              name: String(st.name),
+              grades: st.grades || {}
+            }
+          }));
+          // 교사 계정 문서 (없는 경우에만 첫 로그인 비밀번호 변경 요구)
+          TEACHER_DIRECTORY.forEach(t => {
+            const cur = state.teachers.find(x => x.email === t.email);
+            const data = { name: t.name, role: t.role, classNum: t.classNum };
+            if (!cur || !cur.exists) data.mustChangePassword = true;
+            ops.push({ ref: fb.doc(fb.db, 'teachers', t.email), data, merge: true });
+          });
+          showToast('업로드 중입니다...', 'info');
+          await commitInChunks(ops);
+          showToast(`학생 ${list.length}명 명단·성적을 올렸습니다.`, 'success');
+        } catch (err) {
+          showToast('업로드하지 못했습니다: ' + firebaseErrorText(err), 'error');
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function importBackupJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!state.currentUser || state.currentUser.role !== 'admin') {
+        showToast('백업 불러오기는 관리자만 할 수 있습니다.', 'error');
+        event.target.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!data.records || typeof data.records !== 'object') throw new Error('상담 기록이 없는 파일입니다.');
+          const ids = Object.keys(data.records).filter(k => STUDENTS.some(s => s.id === k));
+          if (!ids.length) throw new Error('현재 학생 명단과 맞는 기록이 없습니다.');
+          if (!confirm(`백업 파일의 상담 기록 ${ids.length}건을 서버에 덮어씁니다.\n지금 서버에 있는 같은 학생의 기록은 백업 내용으로 바뀝니다. 진행할까요?`)) return;
+          const ops = ids.map(k => {
+            const st = STUDENTS.find(s => s.id === k);
+            return { ref: fb.doc(fb.db, 'records', k), data: { ...sanitizeRecord(data.records[k], k), classNum: st.classNum } };
+          });
+          await commitInChunks(ops);
+          state.isFormDirty = false;
+          showToast(`백업 기록 ${ids.length}건을 복원했습니다.`, 'success');
+        } catch (err) {
+          showToast('불러오지 못했습니다: ' + firebaseErrorText(err), 'error');
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderLoginView() {
+      return `
+        <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
+          <div class="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
+            <div class="bg-indigo-600 px-8 py-7 text-white">
+              <div class="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/40 rounded-full text-xs font-semibold mb-3 border border-indigo-400/30">
+                <span>2026학년도 2학년 진학지도</span>
+              </div>
+              <h1 class="text-2xl font-bold tracking-tight">학생 진학 상담관리 프로그램</h1>
+            </div>
+            ${window.fbConfigMissing ? `
+              <div class="mx-8 mt-6 p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900 leading-relaxed">
+                ⚠️ Firebase 설정값이 아직 입력되지 않았습니다. index.html 위쪽 <b>firebaseConfig</b>에 Firebase 콘솔의 값을 붙여 넣어 주세요.
+              </div>
+            ` : ''}
+
+            <form onsubmit="handleLogin(event)" class="p-8 space-y-5">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">이름</label>
+                <input type="text" id="login-name" required autocomplete="username" placeholder="선생님 성함 입력"
+                  class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800 font-medium bg-slate-50" />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">비밀번호</label>
+                <input type="password" id="login-pw" required autocomplete="current-password" placeholder="비밀번호 입력"
+                  class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800 font-medium bg-slate-50" />
+                <p class="text-xs text-slate-400 mt-2">* 첫 로그인 시 본인 계정의 비밀번호를 새로 설정하게 됩니다.</p>
+              </div>
+
+              <button type="submit" id="login-btn" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition duration-150">
+                로그인
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPasswordModal() {
+      if (!state.showPasswordModal || !state.currentUser) return '';
+      const isForced = state.currentUser.mustChangePassword;
+      return `
+        <div class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 no-print">
+          <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden">
+            <div class="bg-amber-500 px-6 py-4 text-white flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-xl">🔐</span>
+                <h3 class="font-bold text-lg">${isForced ? '첫 로그인 비밀번호 변경 (필수)' : '비밀번호 변경'}</h3>
+              </div>
+              ${!isForced ? `<button type="button" onclick="closePasswordModal()" class="text-white/80 hover:text-white text-xl font-bold">&times;</button>` : ''}
+            </div>
+            <form onsubmit="handleChangePassword(event)" class="p-6 space-y-4">
+              ${isForced ? `
+                <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
+                  <b>${escapeHtml(state.currentUser.name)}</b> 선생님, 처음 받은 비밀번호로 로그인하셨습니다.<br>
+                  상담 자료 보안을 위해 본인만 아는 <b>새 비밀번호</b>로 바꿔주세요.
+                </div>
+              ` : ''}
+
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">${isForced ? '처음 받은 비밀번호' : '현재 비밀번호'}</label>
+                <input type="password" id="cur-pw" required autocomplete="current-password" placeholder="지금 사용 중인 비밀번호"
+                  class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none text-sm" />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">새 비밀번호 (6자리 이상)</label>
+                <input type="password" id="new-pw" required minlength="6" autocomplete="new-password" placeholder="새로운 비밀번호 입력"
+                  class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none text-sm" />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">새 비밀번호 확인</label>
+                <input type="password" id="confirm-pw" required minlength="6" autocomplete="new-password" placeholder="새로운 비밀번호 재입력"
+                  class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none text-sm" />
+              </div>
+
+              <div class="flex justify-end gap-2 pt-2">
+                ${!isForced ? `
+                  <button type="button" onclick="closePasswordModal()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50">
+                    취소
+                  </button>
+                ` : `
+                  <button type="button" onclick="handleLogout()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50">
+                    로그아웃
+                  </button>
+                `}
+                <button type="submit" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold shadow">
+                  비밀번호 변경 완료
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderModal() {
+      const root = document.getElementById('modal-root');
+      if (root) root.innerHTML = renderPasswordModal();
+    }
+
+    function renderAdminAccountsTab() {
+      return `
+        <div class="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <div class="pb-5 border-b border-slate-100">
+              <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <span>🔑</span> 교사 계정 현황
+              </h2>
+              <p class="text-sm text-slate-500 mt-1">
+                비밀번호는 Firebase에 암호화되어 저장되므로 관리자도 볼 수 없습니다.
+              </p>
+              <div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed">
+                <b>비밀번호를 잊은 선생님이 있을 때</b><br>
+                ① Firebase 콘솔 → Authentication → 사용자 목록에서 그 선생님 이메일을 삭제<br>
+                ② <b>사용자 추가</b>로 같은 이메일, 새 임시 비밀번호(6자리 이상)를 만들기<br>
+                ③ 아래 표에서 <b>변경 요구</b>를 눌러, 다음 로그인 때 비밀번호를 새로 정하게 하기<br>
+                (상담 기록은 이메일 기준으로 저장되어 계정을 다시 만들어도 그대로 남습니다.)
+              </div>
+            </div>
+
+            <div class="overflow-x-auto mt-5">
+              <table class="w-full text-left border-collapse min-w-[760px] whitespace-nowrap">
+                <thead>
+                  <tr class="bg-slate-50 border-y border-slate-200 text-xs font-bold text-slate-600">
+                    <th class="py-3.5 px-4">구분 / 학급</th>
+                    <th class="py-3.5 px-4">성명</th>
+                    <th class="py-3.5 px-4">로그인 이메일</th>
+                    <th class="py-3.5 px-4">상담 완료율</th>
+                    <th class="py-3.5 px-4">비밀번호 상태</th>
+                    <th class="py-3.5 px-4">최근 변경</th>
+                    <th class="py-3.5 px-4 text-right">관리</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 text-sm">
+                  ${state.teachers.map(t => {
+                    const classStudents = t.role === 'admin' ? STUDENTS : STUDENTS.filter(s => s.classNum === t.classNum);
+                    const completedCount = classStudents.filter(s => state.records[s.id] && state.records[s.id].status === 'completed').length;
+                    const rate = classStudents.length > 0 ? Math.round((completedCount / classStudents.length) * 100) : 0;
+                    const status = !t.exists
+                      ? `<span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">초기 설정 전</span>`
+                      : t.mustChangePassword
+                        ? `<span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">변경 필요</span>`
+                        : `<span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">변경 완료</span>`;
+                    return `
+                      <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3.5 px-4 font-bold ${t.role === 'admin' ? 'text-indigo-600' : 'text-slate-800'}">
+                          ${t.role === 'admin' ? '👑 2학년 부장' : `2학년 ${t.classNum}반`}
+                        </td>
+                        <td class="py-3.5 px-4 font-semibold text-slate-800">${escapeHtml(t.name)}</td>
+                        <td class="py-3.5 px-4 text-xs font-mono text-slate-500">${escapeHtml(t.email)}</td>
+                        <td class="py-3.5 px-4">
+                          <div class="flex items-center gap-2">
+                            <div class="w-20 bg-slate-200 h-2 rounded-full overflow-hidden">
+                              <div class="bg-emerald-500 h-full" style="width: ${rate}%"></div>
+                            </div>
+                            <span class="text-xs font-semibold text-slate-600">${completedCount}/${classStudents.length} (${rate}%)</span>
+                          </div>
+                        </td>
+                        <td class="py-3.5 px-4">${status}</td>
+                        <td class="py-3.5 px-4 text-xs text-slate-500">${escapeHtml(t.pwUpdatedAt || '-')}</td>
+                        <td class="py-3.5 px-4 text-right">
+                          ${t.exists ? `
+                            <button onclick="requirePasswordChange('${t.email}', '${escapeHtml(t.name)}')"
+                              class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-semibold transition">
+                              변경 요구
+                            </button>` : ''}
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderAdminSummaryTab() {
+      const totalStudents = STUDENTS.length;
+      const totalCompleted = STUDENTS.filter(s => state.records[s.id]?.status === 'completed').length;
+
+      return `
+        <div class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+          <!-- 학생 명단·성적 올리기 (관리자) -->
+          <div class="bg-white p-5 rounded-2xl border ${totalStudents ? 'border-slate-200' : 'border-2 border-amber-400'} shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="font-bold text-slate-800">📂 학생 명단·성적 올리기</div>
+              <div class="text-xs text-slate-500 mt-1 leading-relaxed">
+                ${totalStudents
+                  ? '성적이 바뀌었을 때(예: 2학년 2학기 확정 성적) 새 파일을 올리면 같은 학번의 성적만 바뀌고 상담 기록은 그대로 남습니다.'
+                  : '<b class="text-amber-700">처음 한 번</b> 「학생명단_성적_업로드용.json」 파일을 올려야 담임 선생님들이 로그인해서 자기 반 학생을 볼 수 있습니다.'}
+              </div>
+            </div>
+            <label class="shrink-0 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold cursor-pointer text-center">
+              JSON 파일 선택
+              <input type="file" accept=".json" onchange="uploadStudentsJSON(event)" class="hidden" />
+            </label>
+          </div>
+
+          <!-- 상단 요약 카드 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-bold text-slate-400 uppercase">2학년 상담 대상 재학생</div>
+              <div class="text-2xl font-extrabold text-slate-800 mt-1">${totalStudents}명</div>
+              <div class="text-xs text-slate-500 mt-1">1반 ~ 9반 학번순 명단</div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-bold text-emerald-600 uppercase">상담 저장 완료 학생</div>
+              <div class="text-2xl font-extrabold text-emerald-600 mt-1">${totalCompleted}명</div>
+              <div class="text-xs text-slate-500 mt-1">전체 대비 ${totalStudents ? Math.round((totalCompleted/totalStudents)*100) : 0}% 완료</div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-bold text-rose-500 uppercase">미완료 학생</div>
+              <div class="text-2xl font-extrabold text-rose-500 mt-1">${totalStudents - totalCompleted}명</div>
+              <div class="text-xs text-slate-500 mt-1">상담 대기 인원</div>
+            </div>
+          </div>
+
+          <!-- 학급별 진행률 테이블 -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">📊 학급별 상담 입력 현황 및 바로가기</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              ${TEACHER_DIRECTORY.filter(t => t.role === 'teacher').map(t => {
+                const stds = STUDENTS.filter(s => s.classNum === t.classNum);
+                const comp = stds.filter(s => state.records[s.id]?.status === 'completed').length;
+                const pct = stds.length > 0 ? Math.round((comp / stds.length) * 100) : 0;
+                return `
+                  <div class="p-4 rounded-xl border border-slate-200 hover:border-indigo-400 transition bg-slate-50/50 flex flex-col justify-between">
+                    <div>
+                      <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-800 text-base">2학년 ${t.classNum}반</span>
+                        <span class="text-xs font-semibold px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-600">담임: ${t.name}</span>
+                      </div>
+                      <div class="mt-3 flex items-center justify-between text-xs text-slate-600">
+                        <span>상담 완료 <b class="text-emerald-600">${comp}</b> / 총 ${stds.length}명</span>
+                        <span class="font-bold text-indigo-600">${pct}%</span>
+                      </div>
+                      <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden mt-1.5">
+                        <div class="bg-indigo-600 h-full transition-all" style="width: ${pct}%"></div>
+                      </div>
+                    </div>
+                    <button onclick="state.activeAdminTab='counseling'; state.selectedClassFilter=${t.classNum}; state.statusFilter='all'; state.searchQuery=''; const first = getFilteredStudents()[0]; state.selectedStudentId = first ? first.id : null; render();"
+                      class="mt-4 w-full py-2 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-bold transition">
+                      ${t.classNum}반 학생 상담 내역 열람 &rarr;
+                    </button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCounselingWorkspace() {
+      const filteredStudents = getFilteredStudents();
+      // 만약 필터 변경으로 현재 선택된 학생이 목록에 없다면 목록 첫 번째 학생으로 자동 동기화
+      if (filteredStudents.length > 0 && !filteredStudents.some(s => s.id === state.selectedStudentId)) {
+        state.selectedStudentId = filteredStudents[0].id;
+      } else if (filteredStudents.length === 0) {
+        state.selectedStudentId = null;
+      }
+
+      const selectedStudent = STUDENTS.find(s => s.id === state.selectedStudentId) || null;
+      const record = selectedStudent ? getStudentRecord(selectedStudent.id) : null;
+      const grades = selectedStudent ? (selectedStudent.grades || { g1_1: '', g1_2: '', g2_1: '', g2_2: '', overall: '' }) : null;
+      const teacherOfSelected = selectedStudent ? state.teachers.find(t => t.classNum === selectedStudent.classNum) : null;
+
+      return `
+        <div class="workspace-wrapper flex-1 flex flex-col lg:flex-row overflow-hidden max-w-[1650px] w-full mx-auto">
+          <!-- 좌측 사이드바: 학생 명단 (학번순 정렬) 및 필터 -->
+          <!-- 휴대폰 화면: 학생목록 여는 화살표 / 배경 -->
+          <button type="button" id="student-drawer-opener" onclick="toggleStudentList(true)"
+            class="lg:hidden no-print fixed left-0 top-1/2 -translate-y-1/2 z-30 bg-indigo-600 text-white rounded-r-xl shadow-lg px-1.5 py-3 flex flex-col items-center gap-1 ${state.mobileListOpen ? 'hidden' : ''}">
+            <span class="text-base leading-none">▶</span>
+            <span class="text-[10px] font-bold leading-tight" style="writing-mode: vertical-rl;">학생목록</span>
+          </button>
+          <div id="student-drawer-backdrop" onclick="toggleStudentList(false)"
+            class="lg:hidden no-print fixed inset-0 z-40 bg-slate-900/50 ${state.mobileListOpen ? '' : 'hidden'}"></div>
+
+          <aside id="student-drawer" class="fixed inset-y-0 left-0 z-50 w-[85%] max-w-sm transform transition-transform duration-200 ${state.mobileListOpen ? 'translate-x-0' : '-translate-x-full'} lg:static lg:z-auto lg:translate-x-0 lg:transition-none lg:w-80 xl:w-96 bg-white border-r border-slate-200 flex flex-col no-print shrink-0 overflow-hidden shadow-2xl lg:shadow-none">
+            <div class="lg:hidden flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-indigo-600 text-white">
+              <span class="font-bold text-sm">학생 선택</span>
+              <button type="button" onclick="toggleStudentList(false)" class="text-xl leading-none px-2">◀</button>
+            </div>
+            <div class="p-4 border-b border-slate-200 space-y-3 bg-slate-50/60">
+              ${state.currentUser.role === 'admin' ? `
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">학급 선택 (학번순 정렬)</label>
+                  <select onchange="if(!confirmDiscardIfDirty()){this.value=state.selectedClassFilter; return;} state.isFormDirty=false; state.selectedClassFilter = this.value; const list = getFilteredStudents(); state.selectedStudentId = list.length ? list[0].id : null; render();"
+                    class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white focus:border-indigo-600 outline-none">
+                    <option value="all" ${state.selectedClassFilter === 'all' ? 'selected' : ''}>전체 학급 (1반~9반, ${STUDENTS.length}명)</option>
+                    ${TEACHER_DIRECTORY.filter(t => t.role === 'teacher').map(t => {
+                      const cnt = STUDENTS.filter(s => s.classNum === t.classNum).length;
+                      return `
+                        <option value="${t.classNum}" ${String(state.selectedClassFilter) === String(t.classNum) ? 'selected' : ''}>
+                          2학년 ${t.classNum}반 (담임: ${t.name} · ${cnt}명)
+                        </option>
+                      `;
+                    }).join('')}
+                  </select>
+                </div>
+              ` : `
+                <div class="flex items-center justify-between px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-xl">
+                  <span class="text-xs font-bold text-indigo-900">담당 학급: 2학년 ${state.currentUser.classNum}반 (학번순)</span>
+                  <span class="text-xs font-semibold text-indigo-600">${state.currentUser.name} 선생님</span>
+                </div>
+              `}
+
+              <div class="flex gap-2">
+                <input type="text" placeholder="학번, 번호, 이름 검색..." value="${escapeHtml(state.searchQuery)}"
+                  oninput="state.searchQuery = this.value; renderStudentListOnly();"
+                  id="student-search-input"
+                  class="flex-1 min-w-0 px-3 py-2 rounded-xl border border-slate-300 text-sm focus:border-indigo-600 outline-none bg-white" />
+                <select onchange="if(!confirmDiscardIfDirty()){this.value=state.statusFilter; return;} state.isFormDirty=false; state.statusFilter = this.value; const list = getFilteredStudents(); state.selectedStudentId = list.length ? list[0].id : null; render();"
+                  class="px-2.5 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white text-slate-700">
+                  <option value="all" ${state.statusFilter === 'all' ? 'selected' : ''}>전체상태</option>
+                  <option value="completed" ${state.statusFilter === 'completed' ? 'selected' : ''}>상담완료</option>
+                  <option value="pending" ${state.statusFilter === 'pending' ? 'selected' : ''}>미완료(작성중 포함)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 학생 목록 (학번순: 20101, 20102 ...) -->
+            <div id="student-list-container" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar divide-y divide-slate-100">
+              ${renderStudentListItems(filteredStudents)}
+            </div>
+          </aside>
+
+          <!-- 우측 메인 영역: 상담 입력 및 상세 카드 -->
+          <main class="main-panel flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 bg-slate-100">
+            ${!selectedStudent ? `
+              <div class="h-full flex flex-col items-center justify-center text-slate-400 py-20">
+                <div class="text-4xl mb-2">📋</div>
+                <p class="font-semibold">${STUDENTS.length ? '조건에 맞는 학생이 없거나 선택된 학생이 없습니다.' : '아직 학생 명단이 올라오지 않았습니다.'}</p>
+                ${!STUDENTS.length ? `<p class="text-xs mt-2 text-center">${state.currentUser.role === 'admin' ? '📊 학급별 진행 통계 탭에서 학생 명단·성적 파일을 올려주세요.' : '관리자(2학년 부장)가 학생 명단을 올린 뒤 이용할 수 있습니다.'}</p>` : ''}
+              </div>
+            ` : `
+              <div class="max-w-5xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print-container">
+                <!-- 학생 정보 헤더 -->
+                <div class="bg-slate-900 text-white px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div class="flex items-center gap-4">
+                    <div class="px-3.5 py-2.5 rounded-2xl bg-indigo-600 flex flex-col items-center justify-center shadow">
+                      <span class="text-[10px] font-bold text-indigo-200 uppercase leading-none">학번</span>
+                      <span class="font-extrabold text-base tracking-tight mt-0.5">${selectedStudent.id}</span>
+                    </div>
+                    <div>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xl font-extrabold">${selectedStudent.name}</span>
+                        <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                          2학년 ${selectedStudent.classNum}반 ${selectedStudent.studentNum}번
+                        </span>
+                        ${grades.overall ? `
+                          <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 font-bold">
+                            전학년 등급: ${escapeHtml(grades.overall)}등급
+                          </span>
+                        ` : ''}
+                        <span id="unsaved-indicator" class="${state.isFormDirty ? '' : 'hidden'} text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 font-bold no-print">
+                          ● 작성 중 (저장 필요)
+                        </span>
+                      </div>
+                      <p class="text-xs text-slate-300 mt-1">
+                        담임교사: <b>${teacherOfSelected ? teacherOfSelected.name : '-'}</b> 선생님
+                        ${record.updatedAt ? ` | 최근 저장: ${record.updatedAt} (${record.updatedBy})` : ' | 아직 저장된 상담 기록이 없습니다.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-2 no-print">
+                    <button type="button" onclick="handlePrintCard()"
+                      class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition">
+                      🖨️ 상담카드 인쇄
+                    </button>
+                    <button type="button" onclick="saveCurrentCounselingForm()"
+                      class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition shadow-md">
+                      💾 상담 저장
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 상담 폼 본문 -->
+                <div class="p-6 space-y-8" oninput="markFormDirty()" onchange="markFormDirty()">
+
+                  <!-- 섹션 1: 내신 성적 (1-1, 1-2, 2-1, 2-2 예상, 전학년 등급) -->
+                  <section class="space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">1</span>
+                        내신 성적 현황 <span class="text-xs font-normal text-slate-500">- 전과목 이수단위 반영</span>
+                      </h3>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <label class="block text-xs font-bold text-slate-500 mb-1">1학년 1학기</label>
+                        <div class="text-xl font-extrabold text-slate-800">${grades.g1_1 || '-'} <span class="text-xs font-semibold text-slate-400">등급</span></div>
+                      </div>
+                      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <label class="block text-xs font-bold text-slate-500 mb-1">1학년 2학기</label>
+                        <div class="text-xl font-extrabold text-slate-800">${grades.g1_2 || '-'} <span class="text-xs font-semibold text-slate-400">등급</span></div>
+                      </div>
+                      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <label class="block text-xs font-bold text-slate-500 mb-1">2학년 1학기</label>
+                        <div class="text-xl font-extrabold text-slate-800">${grades.g2_1 || '-'} <span class="text-xs font-semibold text-slate-400">등급</span></div>
+                      </div>
+                      <div class="bg-amber-50 p-3.5 rounded-xl border border-dashed border-amber-400 shadow-sm text-center">
+                        <label class="block text-xs font-bold text-amber-800 mb-1">2학년 2학기 <span class="inline-block px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 text-[10px] font-extrabold align-middle">예상</span></label>
+                        <div class="text-xl font-extrabold text-amber-700">${grades.g2_2 || '-'} <span class="text-xs font-semibold text-amber-500">등급</span></div>
+                      </div>
+                      <div class="col-span-2 sm:col-span-1 bg-indigo-50/90 p-3.5 rounded-xl border-2 border-indigo-500 shadow-sm text-center">
+                        <label class="block text-xs font-extrabold text-indigo-900 mb-1">⭐ 전학년 등급</label>
+                        <div class="text-xl font-extrabold text-indigo-700">${grades.overall || '-'} <span class="text-xs font-semibold text-indigo-500">등급</span></div>
+                      </div>
+                    </div>
+
+                    <div id="grade-trend-badge" class="px-1"></div>
+                  </section>
+
+                  <!-- 섹션 2: 진로희망 및 사유 (진로 희망 사유 입력란 대폭 확장) -->
+                  <section class="space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">2</span>
+                        진로희망 및 선택 사유
+                      </h3>
+                      <div class="flex items-center gap-2">
+                        <label class="text-xs font-semibold text-slate-500">상담일자</label>
+                        <input type="date" id="f-consultDate" value="${record.consultDate || new Date().toISOString().split('T')[0]}"
+                          class="px-2.5 py-1 rounded-lg border border-slate-300 text-xs font-medium text-slate-700 focus:border-indigo-600 outline-none" />
+                      </div>
+                    </div>
+
+                    <div class="space-y-4">
+                      <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">희망 진로 / 직업군</label>
+                        <input type="text" id="f-careerHope" value="${escapeHtml(record.careerHope)}"
+                          placeholder="예: 간호사, 수학교사, 소프트웨어 엔지니어, 약사 등"
+                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium" />
+                      </div>
+                      <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">진로 희망 사유 (동기, 관심 분야 및 관련 활동)</label>
+                        <textarea id="f-careerReason" rows="5"
+                          placeholder="학생이 해당 진로를 희망하게 된 구체적인 계기, 흥미를 느낀 교과목이나 동아리·탐구 활동, 향후 진로 계획 등을 자유롭게 기록하세요."
+                          class="no-print w-full p-4 rounded-xl border border-slate-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none text-sm leading-relaxed resize-y min-h-[120px]">${escapeHtml(record.careerReason)}</textarea>
+                        <div id="f-careerReason-print" class="print-only whitespace-pre-wrap p-4 rounded-xl border border-slate-300 text-sm leading-relaxed min-h-[80px]">${escapeHtml(record.careerReason || '-')}</div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <!-- 섹션 3: 수시 지원 희망 6개 대학 리스트 (전형 4종 고정 & 합격 가능성 퍼센테이지 잘림 방지) -->
+                  <section class="space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                      <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">3</span>
+                        수시 지원 계획
+                      </h3>
+                    </div>
+
+                    <div class="space-y-3 sm:space-y-0 sm:rounded-xl sm:border sm:border-slate-200 sm:divide-y sm:divide-slate-200">
+                      <div class="hidden sm:grid grid-cols-[56px_1fr_1fr_130px_200px] gap-3 px-3 py-3 bg-slate-50 rounded-t-xl text-xs font-bold text-slate-600">
+                        <div class="text-center">지망</div>
+                        <div>지원 희망 대학교</div>
+                        <div>희망 학과(학부/전공)</div>
+                        <div>지원 전형</div>
+                        <div>합격 가능성</div>
+                      </div>
+                      ${record.applications.map((app, i) => `
+                        <div class="grid grid-cols-2 gap-2 p-3 rounded-xl border border-slate-200 bg-white sm:border-0 sm:rounded-none sm:grid-cols-[56px_1fr_1fr_130px_200px] sm:gap-3 sm:items-center sm:px-3 sm:py-2.5 hover:bg-slate-50/70">
+                          <div class="col-span-2 sm:col-span-1 font-bold text-indigo-700 sm:text-center whitespace-nowrap text-sm">${i + 1}지망</div>
+                          <div>
+                            <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">대학교</label>
+                            <input type="text" id="f-univ-${i}" value="${escapeHtml(app.university)}"
+                              placeholder="예: 강원대학교"
+                              class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm" />
+                          </div>
+                          <div>
+                            <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">학과</label>
+                            <input type="text" id="f-dept-${i}" value="${escapeHtml(app.department)}"
+                              placeholder="예: 수학교육과"
+                              class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm" />
+                          </div>
+                          <div>
+                            <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">전형</label>
+                            <div class="short-select-wrap">
+                              <select id="f-type-${i}" onchange="syncShortLabel(this)" class="short-select w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-medium bg-white">
+                                ${ADMISSION_TYPES.map(opt => `
+                                  <option value="${opt}" ${normalizeAdmissionType(app.admissionType) === opt ? 'selected' : ''}>${opt}</option>
+                                `).join('')}
+                              </select>
+                              <span class="short-label" data-short-for="f-type-${i}">${ADMISSION_SHORT[normalizeAdmissionType(app.admissionType)]}</span>
+                              <span class="short-arrow">▼</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">합격 가능성</label>
+                            <div class="short-select-wrap">
+                              <select id="f-poss-${i}" onchange="syncShortLabel(this)" class="short-select w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-semibold bg-white">
+                                ${POSSIBILITY_OPTIONS.map(opt => `
+                                  <option value="${opt.v}" ${app.possibility === opt.v ? 'selected' : ''}>${opt.label}</option>
+                                `).join('')}
+                              </select>
+                              <span class="short-label" data-short-for="f-poss-${i}">${possibilityShort(app.possibility)}</span>
+                              <span class="short-arrow">▼</span>
+                            </div>
+                          </div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </section>
+
+                  <!-- 섹션 4: 지원 전략에 대한 학생의 생각 & 담임교사의 총평 (상하 와이드 배치 + 넉넉한 높이) -->
+                  <section class="space-y-6">
+                    <div class="space-y-2">
+                      <label class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">4</span>
+                        지원 전략에 대한 학생의 생각
+                      </label>
+                      <p class="text-xs text-slate-500 no-print">상담에서 파악한 학생의 지원 전략 생각을 담임교사가 정리 (상향·적정·안정 배분, 수능 최저학력기준 대비, 면접·학생부 보완 방향 등)</p>
+                      <textarea id="f-studentThought" rows="7"
+                        placeholder="예: 학생은 학생부교과전형 중심 지원을 원하며, 지역거점 국립대 수학교육과를 적정, 수도권 대학 수학교육과를 소신으로 보고 있음. 6장 중 적정 3개, 소신 2개, 안정 1개 배분을 생각하고 있음. 수능 최저(2합 6) 충족 여부를 가장 걱정하고 있어 영어 등급 향상을 우선 목표로 삼고 있음. 학생부종합전형은 면접 부담을 이유로 1~2장만 고려 중임."
+                        class="no-print w-full p-4 rounded-xl border border-slate-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 outline-none text-sm leading-relaxed resize-y min-h-[160px]">${escapeHtml(record.studentThought)}</textarea>
+                      <div id="f-studentThought-print" class="print-only whitespace-pre-wrap p-4 rounded-xl border border-slate-300 text-sm leading-relaxed min-h-[100px]">${escapeHtml(record.studentThought || '-')}</div>
+                    </div>
+
+                    <div class="space-y-2">
+                      <label class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-extrabold">5</span>
+                        담임교사 종합 총평 및 지도 의견
+                      </label>
+                      <p class="text-xs text-slate-500 no-print">학기별 성적 추이와 전학년 등급, 학교생활기록부 경쟁력 등 다음 학년 담임교사에게 인계할 진학 관련 정보</p>
+                      <textarea id="f-teacherComment" rows="7"
+                        placeholder="예: 1학년부터 수학교사로 진로가 일관되며, 수학 교과 세특과 수학 탐구 동아리 활동이 꾸준히 기록되어 있음. 2학년 1학기에 성적이 다소 내려갔으나 2학기 회복이 예상되어 교과·종합 병행이 가능한 수준임. 모의고사는 국어·수학이 안정적이고 영어가 약해 수능 최저 충족을 위해 3학년 초부터 영어 관리가 필요함. 학부모는 수도권 대학을, 학생은 지역 국립대 사범대를 선호해 의견 차이가 있으므로 3학년 1학기 초 학부모 상담을 권함."
+                        class="no-print w-full p-4 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none text-sm leading-relaxed resize-y min-h-[160px]">${escapeHtml(record.teacherComment)}</textarea>
+                      <div id="f-teacherComment-print" class="print-only whitespace-pre-wrap p-4 rounded-xl border border-slate-300 text-sm leading-relaxed min-h-[100px]">${escapeHtml(record.teacherComment || '-')}</div>
+                    </div>
+                  </section>
+
+                  <!-- 하단 액션 버튼 (임시저장 제거, 상담 저장만 유지) -->
+                  <div class="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
+                    <div class="w-full sm:flex-1">
+                      <div id="completion-checklist">${renderCompletionChecklist(getMissingItems(record))}</div>
+                    </div>
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      <button type="button" onclick="saveCurrentCounselingForm()"
+                        class="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition shadow-md">
+                        💾 상담 저장
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `}
+          </main>
+        </div>
+      `;
+    }
+
+    function renderStudentListItems(students) {
+      if (students.length === 0) {
+        return `<div class="p-8 text-center text-xs text-slate-400">조건에 맞는 학생이 없습니다.</div>`;
+      }
+      return students.map(st => {
+        const rec = state.records[st.id];
+        const g = st.grades || { g1_1: '', g1_2: '', g2_1: '', g2_2: '', overall: '' };
+        const status = rec ? rec.status : 'pending';
+        const isSelected = st.id === state.selectedStudentId;
+        const filledUnivCount = rec ? rec.applications.filter(a => a.university.trim() !== '').length : 0;
+
+        const badge = status === 'completed'
+          ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">상담완료</span>`
+          : status === 'partial'
+            ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700">작성중</span>`
+            : `<span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">미입력</span>`;
+
+        const gradeSummary = (g.g1_1 || g.g1_2 || g.g2_1 || g.g2_2 || g.overall)
+          ? `<div class="text-[11px] font-semibold text-indigo-600 truncate mt-0.5">
+               내신: ${g.g1_1 || '-'} / ${g.g1_2 || '-'} / ${g.g2_1 || '-'} / <span class="text-amber-700">${g.g2_2 || '-'}(예상)</span> <b class="text-indigo-800">(전학년 ${g.overall || '-'})</b>
+             </div>`
+          : `<div class="text-[11px] text-slate-400 mt-0.5">성적 정보 없음</div>`;
+
+        return `
+          <button type="button" data-student-id="${st.id}" onclick="selectStudent('${st.id}')"
+            class="w-full text-left px-4 py-3 flex items-center justify-between transition ${isSelected ? 'bg-indigo-50/90 border-l-4 border-indigo-600' : 'hover:bg-slate-50'}">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="px-2 py-1.5 rounded-xl ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'} flex flex-col items-center justify-center text-xs font-extrabold shrink-0 min-w-[48px]">
+                <span>${st.id}</span>
+              </span>
+              <div class="truncate">
+                <div class="font-bold text-sm text-slate-800 truncate">
+                  ${st.name} <span class="text-xs font-medium text-slate-500">(${st.classNum}반 ${st.studentNum}번)</span>
+                </div>
+                ${gradeSummary}
+                <div class="text-xs text-slate-500 truncate">
+                  ${rec && rec.careerHope ? `희망: ${escapeHtml(rec.careerHope)} (대학 ${filledUnivCount}/6)` : '진로희망 미입력'}
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0 ml-2">${badge}</div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderStudentListOnly() {
+      const container = document.getElementById('student-list-container');
+      if (container) {
+        container.innerHTML = renderStudentListItems(getFilteredStudents());
+      }
+    }
+
+    // ===== 휴대폰 화면 학생목록 서랍 =====
+    // 다시 그리지 않고 클래스만 바꿔서 작성 중인 상담 내용이 사라지지 않게 함
+    function toggleStudentList(open) {
+      state.mobileListOpen = open;
+      const aside = document.getElementById('student-drawer');
+      const backdrop = document.getElementById('student-drawer-backdrop');
+      const opener = document.getElementById('student-drawer-opener');
+      if (aside) {
+        aside.classList.toggle('-translate-x-full', !open);
+        aside.classList.toggle('translate-x-0', open);
+      }
+      if (backdrop) backdrop.classList.toggle('hidden', !open);
+      if (opener) opener.classList.toggle('hidden', open);
+    }
+
+    // ===== 지원전형·합격가능성 축약 표시 =====
+    const ADMISSION_SHORT = { '학생부교과': '교과', '학생부종합': '종합', '논술': '논술', '실기/실적': '실기' };
+
+    function possibilityShort(v) {
+      const opt = POSSIBILITY_OPTIONS.find(o => o.v === v);
+      return opt ? opt.label.replace(/\s*\(.*\)\s*$/, '') : v;
+    }
+
+    function shortLabelFor(selectId, value) {
+      return selectId.startsWith('f-type-') ? (ADMISSION_SHORT[value] || value) : possibilityShort(value);
+    }
+
+    function syncShortLabel(sel) {
+      const lbl = document.querySelector(`[data-short-for="${sel.id}"]`);
+      if (lbl) lbl.textContent = shortLabelFor(sel.id, sel.value);
+    }
+
+    // ===== 희망대학별 조회 (관리자) =====
+    // '강원대학교'와 '강원대'처럼 표기만 다른 이름은 같은 대학으로 묶음
+    function univKey(name) {
+      return String(name || '').replace(/\s+/g, '').replace(/대학교$/, '대');
+    }
+
+    function collectUniversityApplications() {
+      const groups = {};
+      STUDENTS.forEach(st => {
+        const rec = state.records[st.id];
+        if (!rec || !Array.isArray(rec.applications)) return;
+        rec.applications.forEach((app, i) => {
+          const raw = (app.university || '').trim();
+          if (!raw) return;
+          const key = univKey(raw);
+          if (!groups[key]) groups[key] = { key, names: {}, entries: [] };
+          groups[key].names[raw] = (groups[key].names[raw] || 0) + 1;
+          groups[key].entries.push({ student: st, rec, app, order: i + 1 });
+        });
+      });
+      return Object.values(groups).map(g => {
+        const display = Object.keys(g.names).sort((a, b) => (g.names[b] - g.names[a]) || (b.length - a.length))[0];
+        const studentCount = new Set(g.entries.map(e => e.student.id)).size;
+        return { ...g, display, studentCount };
+      }).sort((a, b) => (b.studentCount - a.studentCount) || a.display.localeCompare(b.display, 'ko'));
+    }
+
+    function openStudentFromUniv(studentId) {
+      state.activeAdminTab = 'counseling';
+      state.selectedClassFilter = 'all';
+      state.statusFilter = 'all';
+      state.searchQuery = '';
+      state.selectedStudentId = studentId;
+      state.mobileListOpen = false;
+      render();
+      window.scrollTo(0, 0);
+    }
+
+    function possibilityBadge(v) {
+      const color = {
+        '매우안정': 'bg-emerald-100 text-emerald-800', '안정': 'bg-emerald-50 text-emerald-700',
+        '적정': 'bg-blue-100 text-blue-700', '소신': 'bg-yellow-100 text-yellow-800',
+        '상향': 'bg-orange-100 text-orange-800', '위험': 'bg-rose-100 text-rose-700'
+      }[v] || 'bg-slate-100 text-slate-600';
+      return `<span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap ${color}">${escapeHtml(possibilityShort(v))}</span>`;
+    }
+
+    function renderAdminUniversityTab() {
+      const groups = collectUniversityApplications();
+      if (state.univFilter && !groups.some(g => g.key === state.univFilter)) state.univFilter = '';
+      if (!state.univFilter && groups.length) state.univFilter = groups[0].key;
+      const group = groups.find(g => g.key === state.univFilter);
+
+      const entries = group ? group.entries.slice().sort((a, b) =>
+        (parseFloat(a.student.grades?.overall) || 9) - (parseFloat(b.student.grades?.overall) || 9) ||
+        a.student.id.localeCompare(b.student.id) || a.order - b.order) : [];
+      const gradeVals = group ? [...new Map(group.entries.map(e => [e.student.id, parseFloat(e.student.grades?.overall)])).values()].filter(v => !isNaN(v)) : [];
+      const avg = gradeVals.length ? (gradeVals.reduce((x, y) => x + y, 0) / gradeVals.length).toFixed(2) : '-';
+      const best = gradeVals.length ? Math.min(...gradeVals).toFixed(2) : '-';
+      const worst = gradeVals.length ? Math.max(...gradeVals).toFixed(2) : '-';
+
+      return `
+        <div class="max-w-6xl mx-auto p-4 md:p-6 space-y-5">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">🎓 희망대학별 학생 조회</h2>
+            <p class="text-xs text-slate-500 mt-1">대학을 고르면 그 대학을 수시 지망에 적은 학생과 전학년 내신 등급을 볼 수 있습니다. ('강원대학교'와 '강원대'처럼 표기만 다른 이름은 함께 묶어 보여줍니다.)</p>
+            ${groups.length === 0 ? `
+              <div class="mt-5 p-8 text-center text-sm text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                아직 희망 대학이 입력된 상담 기록이 없습니다.
+              </div>
+            ` : `
+              <div class="mt-4">
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">희망 대학 선택</label>
+                <select onchange="state.univFilter = this.value; render();"
+                  class="w-full sm:w-96 px-3 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold bg-white focus:border-indigo-600 outline-none">
+                  ${groups.map(g => `<option value="${escapeHtml(g.key)}" ${g.key === state.univFilter ? 'selected' : ''}>${escapeHtml(g.display)} (${g.studentCount}명)</option>`).join('')}
+                </select>
+              </div>
+            `}
+          </div>
+
+          ${group ? `
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] font-bold text-slate-400">희망 학생</div>
+                <div class="text-xl font-extrabold text-slate-800 mt-0.5">${group.studentCount}명</div>
+              </div>
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] font-bold text-slate-400">평균 전학년 등급</div>
+                <div class="text-xl font-extrabold text-indigo-700 mt-0.5">${avg}</div>
+              </div>
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] font-bold text-slate-400">최고 등급</div>
+                <div class="text-xl font-extrabold text-slate-800 mt-0.5">${best}</div>
+              </div>
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] font-bold text-slate-400">최저 등급</div>
+                <div class="text-xl font-extrabold text-slate-800 mt-0.5">${worst}</div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="px-5 py-3 border-b border-slate-200 text-sm font-bold text-slate-700">
+                ${escapeHtml(group.display)} 희망 학생 목록 <span class="text-xs font-normal text-slate-400">· 전학년 등급순 · 누르면 상담 내용으로 이동</span>
+              </div>
+
+              <!-- 넓은 화면: 표 -->
+              <table class="hidden md:table w-full text-left text-sm">
+                <thead>
+                  <tr class="bg-slate-50 text-xs font-bold text-slate-600 border-b border-slate-200">
+                    <th class="py-3 px-4">학번</th><th class="py-3 px-4">이름</th><th class="py-3 px-4">전학년 내신</th>
+                    <th class="py-3 px-4">지망</th><th class="py-3 px-4">학과</th><th class="py-3 px-4">전형</th>
+                    <th class="py-3 px-4">합격 가능성</th><th class="py-3 px-4">진로희망</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${entries.map(e => `
+                    <tr class="hover:bg-indigo-50/60 cursor-pointer" onclick="openStudentFromUniv('${e.student.id}')">
+                      <td class="py-3 px-4 font-semibold text-slate-600">${e.student.id}</td>
+                      <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(e.student.name)}</td>
+                      <td class="py-3 px-4 font-extrabold text-indigo-700">${escapeHtml(e.student.grades?.overall || '-')}</td>
+                      <td class="py-3 px-4 text-slate-600">${e.order}지망</td>
+                      <td class="py-3 px-4 text-slate-700">${escapeHtml(e.app.department || '-')}</td>
+                      <td class="py-3 px-4 text-slate-700">${escapeHtml(e.app.admissionType)}</td>
+                      <td class="py-3 px-4">${possibilityBadge(e.app.possibility)}</td>
+                      <td class="py-3 px-4 text-slate-600">${escapeHtml(e.rec.careerHope || '-')}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+
+              <!-- 휴대폰 화면: 카드 -->
+              <div class="md:hidden divide-y divide-slate-100">
+                ${entries.map(e => `
+                  <button type="button" onclick="openStudentFromUniv('${e.student.id}')" class="w-full text-left px-4 py-3 active:bg-indigo-50">
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="font-bold text-slate-800 text-sm">${escapeHtml(e.student.name)} <span class="text-xs font-medium text-slate-500">${e.student.id}</span></div>
+                      <div class="text-sm font-extrabold text-indigo-700 whitespace-nowrap">전학년 ${escapeHtml(e.student.grades?.overall || '-')}</div>
+                    </div>
+                    <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+                      <span class="font-semibold">${e.order}지망</span><span>·</span>
+                      <span>${escapeHtml(e.app.department || '학과 미입력')}</span><span>·</span>
+                      <span>${escapeHtml(ADMISSION_SHORT[e.app.admissionType] || e.app.admissionType)}</span>
+                      ${possibilityBadge(e.app.possibility)}
+                    </div>
+                    ${e.rec.careerHope ? `<div class="mt-0.5 text-[11px] text-slate-400">진로희망: ${escapeHtml(e.rec.careerHope)}</div>` : ''}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function renderMainLayout() {
+      const isAdmin = state.currentUser.role === 'admin';
+      const myStudents = isAdmin
+        ? STUDENTS
+        : STUDENTS.filter(s => s.classNum === state.currentUser.classNum);
+      const completedCount = myStudents.filter(s => state.records[s.id]?.status === 'completed').length;
+
+      return `
+        <!-- 상단 네비게이션 헤더 -->
+        <header class="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-3 no-print lg:sticky lg:top-0 z-30">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-extrabold text-lg shadow-sm">
+              진학
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="font-extrabold text-slate-800 text-base md:text-lg">2학년 학생 진학 상담관리 프로그램</h1>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isAdmin ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}">
+                  ${isAdmin ? '👑 2학년 부장 윤원석 (관리자)' : `2학년 ${state.currentUser.classNum}반 담임 (${state.currentUser.name})`}
+                </span>
+              </div>
+              <p class="text-xs text-slate-500">
+                ${isAdmin ? `전체 학급(${STUDENTS.length}명) 성적·상담 조회 · 실시간 동기화` : `우리 반 학생 ${myStudents.length}명 중 ${completedCount}명 상담 완료 · 실시간 동기화`}
+              </p>
+            </div>
+          </div>
+
+          <!-- 관리자 전용 탭 메뉴 -->
+          ${isAdmin ? `
+            <div class="flex flex-wrap items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button onclick="if(!confirmDiscardIfDirty()) return; state.isFormDirty=false; state.activeAdminTab='counseling'; render();"
+                class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${state.activeAdminTab === 'counseling' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+                📋 학생별 성적·상담관리
+              </button>
+              <button onclick="if(!confirmDiscardIfDirty()) return; state.isFormDirty=false; state.activeAdminTab='summary'; render();"
+                class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${state.activeAdminTab === 'summary' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+                📊 학급별 진행 통계
+              </button>
+              <button onclick="if(!confirmDiscardIfDirty()) return; state.isFormDirty=false; state.activeAdminTab='accounts'; render();"
+                class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${state.activeAdminTab === 'accounts' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+                🔑 교사 계정 현황
+              </button>
+              <button onclick="if(!confirmDiscardIfDirty()) return; state.isFormDirty=false; state.activeAdminTab='university'; render();"
+                class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${state.activeAdminTab === 'university' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+                🎓 희망대학별 조회
+              </button>
+            </div>
+          ` : ''}
+
+          <!-- 우측 도구 모음 -->
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="exportToCSV()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+              📥 엑셀(CSV) 내보내기
+            </button>
+            ${isAdmin ? `
+              <button onclick="exportBackupJSON()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition">
+                백업저장
+              </button>
+              <label class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer">
+                백업불러오기
+                <input type="file" accept=".json" onchange="importBackupJSON(event)" class="hidden" />
+              </label>
+            ` : ''}
+            <button onclick="openPasswordModal()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition">
+              🔐 비밀번호 변경
+            </button>
+            <button onclick="handleLogout()" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition">
+              로그아웃
+            </button>
+          </div>
+        </header>
+
+        <!-- 본문 영역 -->
+        ${isAdmin && state.activeAdminTab === 'accounts'
+          ? renderAdminAccountsTab()
+          : (isAdmin && state.activeAdminTab === 'summary'
+            ? renderAdminSummaryTab()
+            : (isAdmin && state.activeAdminTab === 'university'
+              ? renderAdminUniversityTab()
+              : renderCounselingWorkspace()))
+        }
+      `;
+    }
+
+    function renderStatusView(title, detail, showLogout) {
+      return `
+        <div class="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+          <div class="max-w-md w-full bg-white rounded-2xl shadow border border-slate-200 p-8 text-center">
+            <div class="text-3xl mb-3">${showLogout ? '⚠️' : '⏳'}</div>
+            <div class="font-bold text-slate-800">${title}</div>
+            ${detail ? `<div class="text-xs text-slate-500 mt-2 leading-relaxed">${detail}</div>` : ''}
+            ${showLogout ? `<button onclick="handleLogout()" class="mt-5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold">로그아웃</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function render() {
+      const listEl = document.getElementById('student-list-container');
+      const prevScrollTop = listEl ? listEl.scrollTop : 0;
+      const mainEl = document.querySelector('.main-panel');
+      const prevMainScroll = mainEl ? mainEl.scrollTop : 0;
+      const prevStudent = render.lastStudent;
+
+      const app = document.getElementById('app');
+      document.body.classList.remove('lock-viewport');
+
+      if (!state.authChecked) {
+        app.innerHTML = renderStatusView('서버에 연결하는 중입니다...', '', false);
+      } else if (!state.currentUser) {
+        app.innerHTML = renderLoginView();
+      } else if (state.loadError) {
+        app.innerHTML = renderStatusView('데이터를 불러오지 못했습니다', escapeHtml(state.loadError), true);
+      } else if (!state.dataLoaded) {
+        app.innerHTML = renderStatusView('학생 정보를 불러오는 중입니다...', '', false);
+      } else {
+        app.innerHTML = renderMainLayout();
+        document.body.classList.toggle('lock-viewport', !!document.querySelector('.workspace-wrapper'));
+        const newListEl = document.getElementById('student-list-container');
+        if (newListEl) newListEl.scrollTop = prevScrollTop;
+        const newMainEl = document.querySelector('.main-panel');
+        if (newMainEl && prevStudent === state.selectedStudentId) newMainEl.scrollTop = prevMainScroll;
+        render.lastStudent = state.selectedStudentId;
+        const selectedStudent = STUDENTS.find(s => s.id === state.selectedStudentId);
+        if (selectedStudent && selectedStudent.grades) {
+          updateGradeTrendDisplay(selectedStudent.grades);
+        }
+      }
+      renderModal();
+    }
+
+    // 초기 실행
+    render();
+    // 10초가 지나도 Firebase에 연결되지 않으면 안내
+    setTimeout(() => {
+      if (!state.authChecked) {
+        document.getElementById('app').innerHTML = renderStatusView('서버에 연결하지 못했습니다',
+          '인터넷 연결을 확인하거나 새로고침 해주세요. 계속 안 되면 index.html의 firebaseConfig 값을 확인해주세요.', false);
+      }
+    }, 10000);
+  </script>
+</body>
+</html>
