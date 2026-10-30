@@ -192,6 +192,24 @@
       return '학생부교과';
     }
 
+    // 수능 최저학력기준 충족 여부
+    const MINIMUM_OPTIONS = [
+      { v: '', label: '선택' },
+      { v: '최저없음', label: '최저 없음' },
+      { v: '충족', label: '✅ 충족' },
+      { v: '불확실', label: '⚠️ 불확실' },
+      { v: '미충족', label: '❌ 미충족' }
+    ];
+
+    function normalizeMinimum(val) {
+      return MINIMUM_OPTIONS.some(o => o.v === val) ? val : '';
+    }
+
+    function minimumLabel(v) {
+      const o = MINIMUM_OPTIONS.find(x => x.v === v);
+      return o && v ? o.label : '-';
+    }
+
     function normalizePossibility(val) {
       if (!val) return '적정';
       if (POSSIBILITY_OPTIONS.some(o => o.v === val)) return val;
@@ -210,7 +228,8 @@
           university: '',
           department: '',
           admissionType: '학생부교과',
-          possibility: '적정'
+          possibility: '적정',
+          minimum: ''
         })),
         studentThought: '',
         teacherComment: '',
@@ -236,7 +255,7 @@
       const t = v => String(v || '').trim() !== '';
       const apps = Array.isArray(rec.applications) ? rec.applications : [];
       return t(rec.careerHope) || t(rec.careerReason) || t(rec.studentThought) || t(rec.teacherComment)
-        || apps.some(a => t(a.university) || t(a.department));
+        || apps.some(a => t(a.university) || t(a.department) || t(a.minimum));
     }
 
     function computeStatus(rec, hasSaved) {
@@ -254,7 +273,8 @@
           university: src.university ? String(src.university) : '',
           department: src.department ? String(src.department) : '',
           admissionType: normalizeAdmissionType(src.admissionType),
-          possibility: normalizePossibility(src.possibility)
+          possibility: normalizePossibility(src.possibility),
+          minimum: normalizeMinimum(src.minimum)
         };
       });
       const out = {
@@ -700,7 +720,8 @@
           university: document.getElementById(`f-univ-${i}`).value.trim(),
           department: document.getElementById(`f-dept-${i}`).value.trim(),
           admissionType: document.getElementById(`f-type-${i}`).value,
-          possibility: document.getElementById(`f-poss-${i}`).value
+          possibility: document.getElementById(`f-poss-${i}`).value,
+          minimum: document.getElementById(`f-min-${i}`).value
         });
       }
 
@@ -757,12 +778,12 @@
         '학번', '반', '번호', '이름', '담임교사', '상담상태', '상담일자',
         '1학년_1학기_등급', '1학년_2학기_등급', '2학년_1학기_등급', '2학년_2학기_예상등급', '전학년_등급(2-2예상포함_평균)',
         '진로희망', '진로희망사유',
-        '1지망_대학', '1지망_학과', '1지망_전형', '1지망_합격가능성',
-        '2지망_대학', '2지망_학과', '2지망_전형', '2지망_합격가능성',
-        '3지망_대학', '3지망_학과', '3지망_전형', '3지망_합격가능성',
-        '4지망_대학', '4지망_학과', '4지망_전형', '4지망_합격가능성',
-        '5지망_대학', '5지망_학과', '5지망_전형', '5지망_합격가능성',
-        '6지망_대학', '6지망_학과', '6지망_전형', '6지망_합격가능성',
+        '1지망_대학', '1지망_학과', '1지망_전형', '1지망_수능최저', '1지망_합격가능성',
+        '2지망_대학', '2지망_학과', '2지망_전형', '2지망_수능최저', '2지망_합격가능성',
+        '3지망_대학', '3지망_학과', '3지망_전형', '3지망_수능최저', '3지망_합격가능성',
+        '4지망_대학', '4지망_학과', '4지망_전형', '4지망_수능최저', '4지망_합격가능성',
+        '5지망_대학', '5지망_학과', '5지망_전형', '5지망_수능최저', '5지망_합격가능성',
+        '6지망_대학', '6지망_학과', '6지망_전형', '6지망_수능최저', '6지망_합격가능성',
         '지원전략에_대한_학생생각', '담임교사_총평', '최종수정일시'
       ];
 
@@ -786,8 +807,8 @@
         ];
 
         for (let i = 0; i < 6; i++) {
-          const app = rec.applications[i] || { university: '', department: '', admissionType: '', possibility: '' };
-          cols.push(app.university, app.department, app.admissionType, app.possibility);
+          const app = rec.applications[i] || { university: '', department: '', admissionType: '', possibility: '', minimum: '' };
+          cols.push(app.university, app.department, app.admissionType, app.minimum || '', app.possibility);
         }
 
         cols.push(rec.studentThought, rec.teacherComment, rec.updatedAt || '');
@@ -1376,15 +1397,16 @@
                     </div>
 
                     <div class="space-y-3 sm:space-y-0 sm:rounded-xl sm:border sm:border-slate-200 sm:divide-y sm:divide-slate-200">
-                      <div class="hidden sm:grid grid-cols-[56px_1fr_1fr_130px_200px] gap-3 px-3 py-3 bg-slate-50 rounded-t-xl text-xs font-bold text-slate-600">
+                      <div class="hidden sm:grid grid-cols-[56px_1fr_1fr_120px_120px_190px] gap-3 px-3 py-3 bg-slate-50 rounded-t-xl text-xs font-bold text-slate-600">
                         <div class="text-center">지망</div>
                         <div>지원 희망 대학교</div>
                         <div>희망 학과(학부/전공)</div>
                         <div>지원 전형</div>
+                        <div>수능 최저</div>
                         <div>합격 가능성</div>
                       </div>
                       ${record.applications.map((app, i) => `
-                        <div class="grid grid-cols-2 gap-2 p-3 rounded-xl border border-slate-200 bg-white sm:border-0 sm:rounded-none sm:grid-cols-[56px_1fr_1fr_130px_200px] sm:gap-3 sm:items-center sm:px-3 sm:py-2.5 hover:bg-slate-50/70">
+                        <div class="grid grid-cols-2 gap-2 p-3 rounded-xl border border-slate-200 bg-white sm:border-0 sm:rounded-none sm:grid-cols-[56px_1fr_1fr_120px_120px_190px] sm:gap-3 sm:items-center sm:px-3 sm:py-2.5 hover:bg-slate-50/70">
                           <div class="col-span-2 sm:col-span-1 font-bold text-indigo-700 sm:text-center whitespace-nowrap text-sm">${i + 1}지망</div>
                           <div>
                             <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">대학교</label>
@@ -1411,6 +1433,14 @@
                             </div>
                           </div>
                           <div>
+                            <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">수능 최저</label>
+                            <select id="f-min-${i}" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-semibold bg-white">
+                              ${MINIMUM_OPTIONS.map(opt => `
+                                <option value="${opt.v}" ${app.minimum === opt.v ? 'selected' : ''}>${opt.label}</option>
+                              `).join('')}
+                            </select>
+                          </div>
+                          <div class="col-span-2 sm:col-span-1">
                             <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">합격 가능성</label>
                             <div class="short-select-wrap">
                               <select id="f-poss-${i}" onchange="syncShortLabel(this)" class="short-select w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-semibold bg-white">
@@ -1668,7 +1698,7 @@
                   <tr class="bg-slate-50 text-xs font-bold text-slate-600 border-b border-slate-200">
                     <th class="py-3 px-4">학번</th><th class="py-3 px-4">이름</th><th class="py-3 px-4">전학년 내신</th>
                     <th class="py-3 px-4">지망</th><th class="py-3 px-4">학과</th><th class="py-3 px-4">전형</th>
-                    <th class="py-3 px-4">합격 가능성</th><th class="py-3 px-4">진로희망</th>
+                    <th class="py-3 px-4">수능 최저</th><th class="py-3 px-4">합격 가능성</th><th class="py-3 px-4">진로희망</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -1680,6 +1710,7 @@
                       <td class="py-3 px-4 text-slate-600">${e.order}지망</td>
                       <td class="py-3 px-4 text-slate-700">${escapeHtml(e.app.department || '-')}</td>
                       <td class="py-3 px-4 text-slate-700">${escapeHtml(e.app.admissionType)}</td>
+                      <td class="py-3 px-4 text-xs font-semibold text-slate-700 whitespace-nowrap">${escapeHtml(minimumLabel(e.app.minimum))}</td>
                       <td class="py-3 px-4">${possibilityBadge(e.app.possibility)}</td>
                       <td class="py-3 px-4 text-slate-600">${escapeHtml(e.rec.careerHope || '-')}</td>
                     </tr>
@@ -1699,6 +1730,7 @@
                       <span class="font-semibold">${e.order}지망</span><span>·</span>
                       <span>${escapeHtml(e.app.department || '학과 미입력')}</span><span>·</span>
                       <span>${escapeHtml(ADMISSION_SHORT[e.app.admissionType] || e.app.admissionType)}</span>
+                      ${e.app.minimum ? `<span class="text-[11px] font-semibold text-slate-600">최저 ${escapeHtml(minimumLabel(e.app.minimum))}</span>` : ''}
                       ${possibilityBadge(e.app.possibility)}
                     </div>
                     ${e.rec.careerHope ? `<div class="mt-0.5 text-[11px] text-slate-400">진로희망: ${escapeHtml(e.rec.careerHope)}</div>` : ''}
