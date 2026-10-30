@@ -121,7 +121,7 @@
   <div id="modal-root"></div>
 
   <!-- 토스트 알림 -->
-  <div id="toast" class="fixed bottom-5 right-5 z-50 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none no-print">
+  <div id="toast" class="fixed bottom-5 right-5 z-[100] transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none no-print">
     <div id="toast-content" class="bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium">
       <span id="toast-msg">알림</span>
     </div>
@@ -524,22 +524,30 @@
       await fb.signOut(fb.auth);
     }
 
+    function pwError(msg) {
+      const el = document.getElementById('pw-error');
+      if (el) { el.textContent = '⚠️ ' + msg; el.classList.remove('hidden'); }
+      else showToast(msg, 'error');
+    }
+
     async function handleChangePassword(e) {
       e.preventDefault();
+      const errEl = document.getElementById('pw-error');
+      if (errEl) errEl.classList.add('hidden');
       const curPw = document.getElementById('cur-pw').value;
       const newPw = document.getElementById('new-pw').value.trim();
       const confirmPw = document.getElementById('confirm-pw').value.trim();
 
       if (newPw.length < 6) {
-        showToast('비밀번호는 6자리 이상으로 입력해주세요.', 'error');
+        pwError('비밀번호는 6자리 이상으로 입력해주세요.');
         return;
       }
       if (newPw === curPw) {
-        showToast('현재 비밀번호와 다른 새 비밀번호를 입력해주세요.', 'error');
+        pwError('현재 비밀번호와 다른 새 비밀번호를 입력해주세요.');
         return;
       }
       if (newPw !== confirmPw) {
-        showToast('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.', 'error');
+        pwError('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.');
         return;
       }
 
@@ -550,9 +558,9 @@
         await fb.updatePassword(user, newPw);
       } catch (err) {
         const code = err.code || '';
-        if (['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(code)) showToast('현재 비밀번호가 일치하지 않습니다.', 'error');
-        else if (code === 'auth/weak-password') showToast('비밀번호가 너무 약합니다. 6자리 이상으로 입력해주세요.', 'error');
-        else showToast('비밀번호를 바꾸지 못했습니다. (' + code + ')', 'error');
+        if (['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(code)) pwError('현재 비밀번호가 일치하지 않습니다.');
+        else if (code === 'auth/weak-password') pwError('비밀번호가 너무 약합니다. 6자리 이상으로 입력해주세요.');
+        else pwError('비밀번호를 바꾸지 못했습니다. (' + code + ')');
         return;
       }
 
@@ -987,6 +995,7 @@
               ${!isForced ? `<button type="button" onclick="closePasswordModal()" class="text-white/80 hover:text-white text-xl font-bold">&times;</button>` : ''}
             </div>
             <form onsubmit="handleChangePassword(event)" class="p-6 space-y-4">
+              <div id="pw-error" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-300 text-sm font-semibold text-rose-700"></div>
               ${isForced ? `
                 <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
                   <b>${escapeHtml(state.currentUser.name)}</b> 선생님, 처음 받은 비밀번호로 로그인하셨습니다.<br>
