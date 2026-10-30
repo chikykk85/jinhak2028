@@ -231,8 +231,16 @@
     }
 
     // 'completed' = 상담완료, 'partial' = 작성중(저장했지만 필수 항목 부족), 'pending' = 미입력
+    // 작성한 내용이 하나라도 있는지 (상담일자·기본 선택값은 제외)
+    function hasAnyContent(rec) {
+      const t = v => String(v || '').trim() !== '';
+      const apps = Array.isArray(rec.applications) ? rec.applications : [];
+      return t(rec.careerHope) || t(rec.careerReason) || t(rec.studentThought) || t(rec.teacherComment)
+        || apps.some(a => t(a.university) || t(a.department));
+    }
+
     function computeStatus(rec, hasSaved) {
-      if (!hasSaved) return 'pending';
+      if (!hasSaved || !hasAnyContent(rec)) return 'pending';
       return getMissingItems(rec).length === 0 ? 'completed' : 'partial';
     }
 
@@ -410,39 +418,10 @@
       render();
     }
 
-    function readFormForCheck() {
-      const v = id => (document.getElementById(id) || {}).value || '';
-      return {
-        careerHope: v('f-careerHope'),
-        studentThought: v('f-studentThought'),
-        teacherComment: v('f-teacherComment'),
-        applications: [0, 1, 2, 3, 4, 5].map(i => ({ university: v(`f-univ-${i}`) }))
-      };
-    }
 
-    function updateCompletionChecklist() {
-      const box = document.getElementById('completion-checklist');
-      if (!box) return;
-      box.innerHTML = renderCompletionChecklist(getMissingItems(readFormForCheck()));
-    }
 
-    function renderCompletionChecklist(missing) {
-      const items = ['희망 진로/직업군', '수시 지원 계획(1개 이상)', '지원 전략에 대한 학생의 생각', '담임교사 총평'];
-      const done = missing.length === 0;
-      return `
-        <div class="text-xs font-bold ${done ? 'text-emerald-700' : 'text-slate-600'} mb-1.5">
-          ${done ? '✅ 모두 작성했습니다. 저장하면 상담완료로 표시됩니다.' : `상담완료 조건 (${items.length - missing.length}/${items.length})`}
-        </div>
-        <div class="flex flex-wrap gap-1.5">
-          ${items.map(it => {
-            const ok = !missing.includes(it);
-            return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold ${ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-white text-slate-500 border border-slate-300'}">${ok ? '✔' : '○'} ${it}</span>`;
-          }).join('')}
-        </div>`;
-    }
 
     function markFormDirty() {
-      updateCompletionChecklist();
       state.isFormDirty = true;
       const unsavedBadge = document.getElementById('unsaved-indicator');
       if (unsavedBadge) {
@@ -739,16 +718,15 @@
         updatedBy: state.currentUser.name
       };
 
-      const missing = getMissingItems(data);
-      data.status = missing.length === 0 ? 'completed' : 'partial';
+      data.status = computeStatus(data, true);
 
       state.isFormDirty = false;
       try {
         await fb.setDoc(fb.doc(fb.db, 'records', stId), data);
-        if (missing.length === 0) {
+        if (data.status === 'completed') {
           showToast(`${stObj.name} 학생 상담이 완료되었습니다. ✅`, 'success');
         } else {
-          showToast(`저장했습니다. 상담완료까지 남은 항목: ${missing.join(', ')}`, 'info');
+          showToast(`${stObj.classNum}반 ${stObj.studentNum}번 ${stObj.name} 학생 상담 내역이 저장되었습니다.`, 'success');
         }
       } catch (err) {
         console.error(err);
@@ -1313,7 +1291,7 @@
                       🖨️ 상담카드 인쇄
                     </button>
                     <button type="button" onclick="saveCurrentCounselingForm()"
-                      class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition shadow-md">
+                      class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-md">
                       💾 상담 저장
                     </button>
                   </div>
@@ -1477,10 +1455,7 @@
                   </section>
 
                   <!-- 하단 액션 버튼 (임시저장 제거, 상담 저장만 유지) -->
-                  <div class="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
-                    <div class="w-full sm:flex-1">
-                      <div id="completion-checklist">${renderCompletionChecklist(getMissingItems(record))}</div>
-                    </div>
+                  <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-3 no-print">
                     <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
                       <button type="button" onclick="saveCurrentCounselingForm()"
                         class="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition shadow-md">
