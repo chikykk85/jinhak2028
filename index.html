@@ -93,7 +93,7 @@
       reauthenticateWithCredential, EmailAuthProvider, setPersistence, browserSessionPersistence
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import {
-      getFirestore, collection, doc, setDoc, onSnapshot, query, where, writeBatch
+      initializeFirestore, collection, doc, setDoc, onSnapshot, query, where, writeBatch
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -110,7 +110,8 @@
     } else {
       const app = initializeApp(firebaseConfig);
       window.fb = {
-        auth: getAuth(app), db: getFirestore(app),
+        // 학교망·방화벽에서도 연결되도록 롱폴링 방식 사용
+        auth: getAuth(app), db: initializeFirestore(app, { experimentalForceLongPolling: true }),
         signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword,
         reauthenticateWithCredential, EmailAuthProvider, setPersistence, browserSessionPersistence,
         collection, doc, setDoc, onSnapshot, query, where, writeBatch
@@ -334,8 +335,9 @@
     function firebaseErrorText(err) {
       const code = (err && err.code) || '';
       if (code === 'permission-denied') return '권한이 없습니다. 관리자가 초기 설정(학생 명단 업로드)을 먼저 해야 하거나, 보안 규칙이 게시되지 않았습니다.';
-      if (code === 'unavailable') return '서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.';
-      return (err && err.message) ? err.message : String(err);
+      if (code === 'unavailable') return '데이터베이스 서버에 연결할 수 없습니다. ① Firebase 콘솔에서 Firestore Database를 만들었는지 ② 인터넷(학교망 차단) 상태를 확인해주세요. [unavailable]';
+      if (code === 'not-found' || code === 'failed-precondition') return 'Firestore 데이터베이스가 아직 만들어지지 않았습니다. Firebase 콘솔 → Firestore Database → 데이터베이스 만들기를 진행해주세요. [' + code + ']';
+      return ((err && err.message) ? err.message : String(err)) + (code ? ' [' + code + ']' : '');
     }
 
     async function handleAuthChange(user) {
@@ -986,7 +988,7 @@
               <button type="submit" id="login-btn" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition duration-150">
                 로그인
               </button>
-              <p class="text-center text-[11px] text-slate-300">버전 10.31-1135</p>
+              <p class="text-center text-[11px] text-slate-300">버전 10.31-1440</p>
             </form>
           </div>
         </div>
@@ -1920,7 +1922,7 @@
     setTimeout(() => {
       if (!state.authChecked) {
         document.getElementById('app').innerHTML = renderStatusView('서버에 연결하지 못했습니다',
-          '인터넷 연결을 확인하거나 새로고침 해주세요. 계속 안 되면 index.html의 firebaseConfig 값을 확인해주세요.', false);
+          'Firebase 프로그램 파일을 불러오지 못했습니다. 새로고침(Ctrl+F5) 해보고, 학교망에서 안 되면 휴대폰 데이터(LTE)로 접속해 비교해주세요. [firebase-sdk-timeout]', false);
       }
     }, 10000);
   </script>
