@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>2학년 진학 상담관리</title>
-  <!-- 버전: 2026-10-30 23:33 (로그인 위치, 표 머리글 가운데) -->
+  <!-- 버전: 2026-11-01 15:30 (전형·가능성 기본값 선택, 전체 점검) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
   <style>
@@ -48,7 +48,7 @@
     /* 휴대폰·폴드·태블릿 화면(1024px 미만): 지원전형·수능최저·합격가능성은 축약 표시, 눌렀을 때 전체 명칭 */
     .short-select-wrap { position: relative; }
     .short-label { display: none; }
-    @media screen and (max-width: 1023px) {
+    @media print, screen and (max-width: 1023px) {
       .short-select {
         color: transparent !important;
         -webkit-appearance: none; appearance: none;
@@ -79,7 +79,12 @@
       body.lock-viewport .workspace-wrapper { min-height: 0; }
       body.lock-viewport #student-drawer { min-height: 0; }
     }
-    @media print { .short-label, .short-arrow { display: none !important; } }
+    @media print {
+      .short-arrow { display: none !important; }
+      .short-label.is-empty { visibility: hidden; }
+      input::placeholder, textarea::placeholder { color: transparent !important; }
+      .grade-val { white-space: nowrap; font-size: 1.05rem !important; }
+    }
   </style>
   <!-- ============================================================
        Firebase 설정 — Firebase 콘솔 → 프로젝트 설정 → 내 앱(웹 앱)의
@@ -189,13 +194,14 @@
     };
 
     function normalizeAdmissionType(val) {
-      if (!val) return '학생부교과';
+      if (!val) return '';
+      val = String(val);
       if (ADMISSION_TYPES.includes(val)) return val;
       if (val.includes('교과')) return '학생부교과';
       if (val.includes('종합')) return '학생부종합';
       if (val.includes('논술')) return '논술';
       if (val.includes('실기') || val.includes('실적')) return '실기/실적';
-      return '학생부교과';
+      return '';
     }
 
     // 수능 최저학력기준 충족 여부
@@ -217,9 +223,9 @@
     }
 
     function normalizePossibility(val) {
-      if (!val) return '적정';
+      if (!val) return '';
       if (POSSIBILITY_OPTIONS.some(o => o.v === val)) return val;
-      return '적정';
+      return '';
     }
 
     // 기기 시간(한국) 기준 오늘 날짜 YYYY-MM-DD
@@ -239,8 +245,8 @@
           order: i + 1,
           university: '',
           department: '',
-          admissionType: '학생부교과',
-          possibility: '적정',
+          admissionType: '',
+          possibility: '',
           minimum: ''
         })),
         studentThought: '',
@@ -267,7 +273,7 @@
       const t = v => String(v || '').trim() !== '';
       const apps = Array.isArray(rec.applications) ? rec.applications : [];
       return t(rec.careerHope) || t(rec.careerReason) || t(rec.studentThought) || t(rec.teacherComment)
-        || apps.some(a => t(a.university) || t(a.department) || t(a.minimum));
+        || apps.some(a => t(a.university) || t(a.department) || t(a.minimum) || t(a.admissionType) || t(a.possibility));
     }
 
     function computeStatus(rec, hasSaved) {
@@ -280,7 +286,7 @@
       if (!rec || typeof rec !== 'object') return base;
       const apps = Array.from({ length: 6 }, (_, i) => {
         const src = Array.isArray(rec.applications) && rec.applications[i] ? rec.applications[i] : {};
-        return {
+        const out = {
           order: i + 1,
           university: src.university ? String(src.university) : '',
           department: src.department ? String(src.department) : '',
@@ -288,6 +294,12 @@
           possibility: normalizePossibility(src.possibility),
           minimum: normalizeMinimum(src.minimum)
         };
+        if (!out.university.trim() && !out.department.trim() && !out.minimum
+            && out.admissionType === '학생부교과' && out.possibility === '적정') {
+          out.admissionType = '';
+          out.possibility = '';
+        }
+        return out;
       });
       const out = {
         studentId: studentId,
@@ -487,9 +499,10 @@
          type === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white');
 
       toast.classList.remove('translate-y-20', 'opacity-0');
-      setTimeout(() => {
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => {
         toast.classList.add('translate-y-20', 'opacity-0');
-      }, 3000);
+      }, type === 'error' ? 5000 : 3000);
     }
 
     async function handleLogin(e) {
@@ -548,8 +561,8 @@
       const errEl = document.getElementById('pw-error');
       if (errEl) errEl.classList.add('hidden');
       const curPw = document.getElementById('cur-pw').value;
-      const newPw = document.getElementById('new-pw').value.trim();
-      const confirmPw = document.getElementById('confirm-pw').value.trim();
+      const newPw = document.getElementById('new-pw').value;
+      const confirmPw = document.getElementById('confirm-pw').value;
 
       if (newPw.length < 6) {
         pwError('비밀번호는 6자리 이상으로 입력해주세요.');
@@ -762,7 +775,12 @@
 
       data.status = computeStatus(data, true);
 
+      if (saveCurrentCounselingForm.busy) return; // 저장 버튼 연타 방지
+      saveCurrentCounselingForm.busy = true;
       state.isFormDirty = false;
+      const slowTimer = setTimeout(() => {
+        showToast('인터넷 연결이 느립니다. 저장이 끝날 때까지 이 화면을 닫지 마세요.', 'info');
+      }, 6000);
       try {
         await fb.setDoc(fb.doc(fb.db, 'records', stId), data);
         if (data.status === 'completed') {
@@ -772,9 +790,35 @@
         }
       } catch (err) {
         console.error(err);
-        markFormDirty();
+        // 서버가 거절하면 화면이 이전 내용으로 되돌아가므로, 작성한 내용을 다시 채워 둠
+        setTimeout(() => {
+          if (state.selectedStudentId === stId) restoreFormValues(data);
+          markFormDirty();
+        }, 0);
         showToast('저장하지 못했습니다: ' + firebaseErrorText(err), 'error');
+      } finally {
+        clearTimeout(slowTimer);
+        saveCurrentCounselingForm.busy = false;
       }
+    }
+
+    function restoreFormValues(data) {
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+      set('f-careerHope', data.careerHope);
+      set('f-careerReason', data.careerReason);
+      set('f-consultDate', data.consultDate);
+      set('f-studentThought', data.studentThought);
+      set('f-teacherComment', data.teacherComment);
+      data.applications.forEach((a, i) => {
+        set(`f-univ-${i}`, a.university);
+        set(`f-dept-${i}`, a.department);
+        ['type', 'min', 'poss'].forEach(k => {
+          const el = document.getElementById(`f-${k}-${i}`);
+          if (!el) return;
+          el.value = k === 'type' ? a.admissionType : k === 'min' ? a.minimum : a.possibility;
+          syncShortLabel(el);
+        });
+      });
     }
 
     // 인쇄 시 textarea 줄바꿈 및 전체 내용이 잘리지 않도록 동기화 후 인쇄
@@ -810,8 +854,9 @@
 
       const escapeCSV = (val) => {
         if (val === null || val === undefined) return '""';
-        const str = String(val).replace(/"/g, '""');
-        return `"${str}"`;
+        let str = String(val);
+        if (/^[=+@]/.test(str)) str = "'" + str; // 엑셀 수식으로 해석되지 않게
+        return `"${str.replace(/"/g, '""')}"`;
       };
 
       const rows = targetStudents.map(st => {
@@ -988,7 +1033,7 @@
               <button type="submit" id="login-btn" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition duration-150">
                 로그인
               </button>
-              <p class="text-center text-[11px] text-slate-300">버전 10.31-1440</p>
+              <p class="text-center text-[11px] text-slate-300">버전 11.01-1530</p>
             </form>
           </div>
         </div>
@@ -1057,7 +1102,12 @@
 
     function renderModal() {
       const root = document.getElementById('modal-root');
-      if (root) root.innerHTML = renderPasswordModal();
+      if (!root) return;
+      const want = (state.showPasswordModal && state.currentUser)
+        ? (state.currentUser.mustChangePassword ? 'forced' : 'normal') : '';
+      if (root.dataset.shown === want) return; // 이미 같은 창이 떠 있으면 입력값 유지
+      root.dataset.shown = want;
+      root.innerHTML = renderPasswordModal();
     }
 
     function renderAdminAccountsTab() {
@@ -1076,7 +1126,7 @@
                 ① Firebase 콘솔 → Authentication → 사용자 목록에서 그 선생님 이메일을 삭제<br>
                 ② <b>사용자 추가</b>로 같은 이메일, 새 임시 비밀번호(6자리 이상)를 만들기<br>
                 ③ 아래 표에서 <b>변경 요구</b>를 눌러, 다음 로그인 때 비밀번호를 새로 정하게 하기<br>
-                (상담 기록은 이메일 기준으로 저장되어 계정을 다시 만들어도 그대로 남습니다.)
+                (상담 기록은 학생별로 저장되므로 계정을 다시 만들어도 그대로 남습니다.)
               </div>
             </div>
 
@@ -1217,11 +1267,11 @@
 
     function renderCounselingWorkspace() {
       const filteredStudents = getFilteredStudents();
-      // 만약 필터 변경으로 현재 선택된 학생이 목록에 없다면 목록 첫 번째 학생으로 자동 동기화
-      if (filteredStudents.length > 0 && !filteredStudents.some(s => s.id === state.selectedStudentId)) {
-        state.selectedStudentId = filteredStudents[0].id;
-      } else if (filteredStudents.length === 0) {
-        state.selectedStudentId = null;
+      // 선택된 학생이 없거나 명단에서 사라진 경우에만 목록 첫 학생으로 맞춤
+      // (검색어·상태 필터나 다른 선생님의 저장 때문에 보고 있던 학생이 갑자기 바뀌지 않게 함)
+      const visible = STUDENTS.filter(st => state.currentUser.role === 'admin' || st.classNum === state.currentUser.classNum);
+      if (!visible.some(s => s.id === state.selectedStudentId)) {
+        state.selectedStudentId = filteredStudents.length ? filteredStudents[0].id : null;
       }
 
       const selectedStudent = STUDENTS.find(s => s.id === state.selectedStudentId) || null;
@@ -1305,11 +1355,11 @@
                   <div class="flex items-center gap-4">
                     <div class="px-3.5 py-2.5 rounded-2xl bg-indigo-600 flex flex-col items-center justify-center shadow">
                       <span class="text-[10px] font-bold text-indigo-200 uppercase leading-none">학번</span>
-                      <span class="font-extrabold text-base tracking-tight mt-0.5">${selectedStudent.id}</span>
+                      <span class="font-extrabold text-base tracking-tight mt-0.5">${escapeHtml(selectedStudent.id)}</span>
                     </div>
                     <div>
                       <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-xl font-extrabold">${selectedStudent.name}</span>
+                        <span class="text-xl font-extrabold">${escapeHtml(selectedStudent.name)}</span>
                         <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
                           2학년 ${selectedStudent.classNum}반 ${selectedStudent.studentNum}번
                         </span>
@@ -1324,7 +1374,7 @@
                       </div>
                       <p class="text-xs text-slate-300 mt-1">
                         담임교사: <b>${teacherOfSelected ? teacherOfSelected.name : '-'}</b> 선생님
-                        ${record.updatedAt ? ` | 최근 저장: ${record.updatedAt} (${record.updatedBy})` : ' | 아직 저장된 상담 기록이 없습니다.'}
+                        ${record.updatedAt ? ` | 최근 저장: ${escapeHtml(record.updatedAt)} (${escapeHtml(record.updatedBy)})` : ' | 아직 저장된 상담 기록이 없습니다.'}
                       </p>
                     </div>
                   </div>
@@ -1356,23 +1406,23 @@
                     <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                       <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm text-center">
                         <label class="block text-xs font-bold text-slate-500 mb-1">1학년 1학기</label>
-                        <div class="text-xl font-extrabold text-slate-800">${grades.g1_1 || '-'} <span class="text-xs font-semibold text-slate-400">등급</span></div>
+                        <div class="grade-val text-xl font-extrabold text-slate-800">${escapeHtml(grades.g1_1) || '-'} <span class="text-xs font-semibold text-slate-400">등급</span></div>
                       </div>
                       <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm text-center">
                         <label class="block text-xs font-bold text-slate-500 mb-1">1학년 2학기</label>
-                        <div class="text-xl font-extrabold text-slate-800">${grades.g1_2 || '-'} <span class="text-xs font-semibold text-slate-400">등급</span></div>
+                        <div class="grade-val text-xl font-extrabold text-slate-800">${escapeHtml(grades.g1_2) || '-'} <span class="text-xs font-semibold text-slate-400">등급</span></div>
                       </div>
                       <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm text-center">
                         <label class="block text-xs font-bold text-slate-500 mb-1">2학년 1학기</label>
-                        <div class="text-xl font-extrabold text-slate-800">${grades.g2_1 || '-'} <span class="text-xs font-semibold text-slate-400">등급</span></div>
+                        <div class="grade-val text-xl font-extrabold text-slate-800">${escapeHtml(grades.g2_1) || '-'} <span class="text-xs font-semibold text-slate-400">등급</span></div>
                       </div>
                       <div class="bg-amber-50 p-3.5 rounded-xl border border-dashed border-amber-400 shadow-sm text-center">
                         <label class="block text-xs font-bold text-amber-800 mb-1">2학년 2학기 <span class="inline-block px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 text-[10px] font-extrabold align-middle">예상</span></label>
-                        <div class="text-xl font-extrabold text-amber-700">${grades.g2_2 || '-'} <span class="text-xs font-semibold text-amber-500">등급</span></div>
+                        <div class="grade-val text-xl font-extrabold text-amber-700">${escapeHtml(grades.g2_2) || '-'} <span class="text-xs font-semibold text-amber-500">등급</span></div>
                       </div>
                       <div class="col-span-2 sm:col-span-1 bg-indigo-50/90 p-3.5 rounded-xl border-2 border-indigo-500 shadow-sm text-center">
                         <label class="block text-xs font-extrabold text-indigo-900 mb-1">⭐ 전학년 등급</label>
-                        <div class="text-xl font-extrabold text-indigo-700">${grades.overall || '-'} <span class="text-xs font-semibold text-indigo-500">등급</span></div>
+                        <div class="grade-val text-xl font-extrabold text-indigo-700">${escapeHtml(grades.overall) || '-'} <span class="text-xs font-semibold text-indigo-500">등급</span></div>
                       </div>
                     </div>
 
@@ -1447,11 +1497,12 @@
                             <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">전형</label>
                             <div class="short-select-wrap">
                               <select id="f-type-${i}" onchange="syncShortLabel(this)" class="short-select w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-medium bg-white">
+                                <option value="" ${!app.admissionType ? 'selected' : ''}>선택</option>
                                 ${ADMISSION_TYPES.map(opt => `
-                                  <option value="${opt}" ${normalizeAdmissionType(app.admissionType) === opt ? 'selected' : ''}>${opt}</option>
+                                  <option value="${opt}" ${app.admissionType === opt ? 'selected' : ''}>${opt}</option>
                                 `).join('')}
                               </select>
-                              <span class="short-label" data-short-for="f-type-${i}">${ADMISSION_SHORT[normalizeAdmissionType(app.admissionType)]}</span>
+                              <span class="short-label ${app.admissionType ? '' : 'is-empty'}" data-short-for="f-type-${i}">${admissionShort(app.admissionType)}</span>
                               <span class="short-arrow">▼</span>
                             </div>
                           </div>
@@ -1463,7 +1514,7 @@
                                   <option value="${opt.v}" ${app.minimum === opt.v ? 'selected' : ''}>${opt.label}</option>
                                 `).join('')}
                               </select>
-                              <span class="short-label" data-short-for="f-min-${i}">${minimumShort(app.minimum)}</span>
+                              <span class="short-label ${app.minimum ? '' : 'is-empty'}" data-short-for="f-min-${i}">${minimumShort(app.minimum)}</span>
                               <span class="short-arrow">▼</span>
                             </div>
                           </div>
@@ -1471,11 +1522,12 @@
                             <label class="sm:hidden block text-[11px] font-semibold text-slate-500 mb-0.5">합격 가능성</label>
                             <div class="short-select-wrap">
                               <select id="f-poss-${i}" onchange="syncShortLabel(this)" class="short-select w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-600 outline-none text-sm font-semibold bg-white">
+                                <option value="" ${!app.possibility ? 'selected' : ''}>선택</option>
                                 ${POSSIBILITY_OPTIONS.map(opt => `
                                   <option value="${opt.v}" ${app.possibility === opt.v ? 'selected' : ''}>${opt.label}</option>
                                 `).join('')}
                               </select>
-                              <span class="short-label" data-short-for="f-poss-${i}">${possibilityShort(app.possibility)}</span>
+                              <span class="short-label ${app.possibility ? '' : 'is-empty'}" data-short-for="f-poss-${i}">${possibilityShort(app.possibility)}</span>
                               <span class="short-arrow">▼</span>
                             </div>
                           </div>
@@ -1547,7 +1599,7 @@
 
         const gradeSummary = (g.g1_1 || g.g1_2 || g.g2_1 || g.g2_2 || g.overall)
           ? `<div class="text-[11px] font-semibold text-indigo-600 truncate mt-0.5">
-               전학년 내신 <b class="text-indigo-800">${g.overall || '-'}</b>
+               전학년 내신 <b class="text-indigo-800">${escapeHtml(g.overall) || '-'}</b>
              </div>`
           : `<div class="text-[11px] text-slate-400 mt-0.5">성적 정보 없음</div>`;
 
@@ -1556,7 +1608,7 @@
             class="w-full text-left px-4 py-3 flex items-center justify-between transition ${isSelected ? 'bg-indigo-50/90 border-l-4 border-indigo-600' : 'hover:bg-slate-50'}">
             <div class="flex items-center gap-3 min-w-0">
               <span class="px-2 py-1.5 rounded-xl ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'} flex flex-col items-center justify-center text-xs font-extrabold shrink-0 min-w-[48px]">
-                <span>${st.id}</span>
+                <span>${escapeHtml(st.id)}</span>
               </span>
               <div class="truncate">
                 <div class="font-bold text-sm text-slate-800 truncate">
@@ -1599,9 +1651,13 @@
     // ===== 지원전형·합격가능성 축약 표시 =====
     const ADMISSION_SHORT = { '학생부교과': '교과', '학생부종합': '종합', '논술': '논술', '실기/실적': '실기' };
 
+    function admissionShort(v) {
+      return ADMISSION_SHORT[v] || '선택';
+    }
+
     function possibilityShort(v) {
       const opt = POSSIBILITY_OPTIONS.find(o => o.v === v);
-      return opt ? opt.label.replace(/\s*\(.*\)\s*$/, '').replace(/\/.*$/, '') : v;
+      return opt ? opt.label.replace(/\s*\(.*\)\s*$/, '').replace(/\/.*$/, '') : '선택';
     }
 
     function minimumShort(v) {
@@ -1609,14 +1665,17 @@
     }
 
     function shortLabelFor(selectId, value) {
-      if (selectId.startsWith('f-type-')) return ADMISSION_SHORT[value] || value;
+      if (selectId.startsWith('f-type-')) return admissionShort(value);
       if (selectId.startsWith('f-min-')) return minimumShort(value);
       return possibilityShort(value);
     }
 
     function syncShortLabel(sel) {
       const lbl = document.querySelector(`[data-short-for="${sel.id}"]`);
-      if (lbl) lbl.textContent = shortLabelFor(sel.id, sel.value);
+      if (lbl) {
+        lbl.textContent = shortLabelFor(sel.id, sel.value);
+        lbl.classList.toggle('is-empty', !sel.value);
+      }
     }
 
     // ===== 희망대학별 조회 (관리자) =====
@@ -1663,6 +1722,7 @@
         '적정': 'bg-blue-100 text-blue-700', '소신': 'bg-yellow-100 text-yellow-800',
         '상향': 'bg-orange-100 text-orange-800', '위험': 'bg-rose-100 text-rose-700'
       }[v] || 'bg-slate-100 text-slate-600';
+      if (!v) return '<span class="text-slate-400">-</span>';
       return `<span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap ${color}">${escapeHtml(possibilityShort(v))}</span>`;
     }
 
@@ -1742,7 +1802,7 @@
                       <td class="py-3 px-4 font-extrabold text-indigo-700">${escapeHtml(e.student.grades?.overall || '-')}</td>
                       <td class="py-3 px-4 text-slate-600">${e.order}지망</td>
                       <td class="py-3 px-4 text-slate-700">${escapeHtml(e.app.department || '-')}</td>
-                      <td class="py-3 px-4 text-slate-700">${escapeHtml(e.app.admissionType)}</td>
+                      <td class="py-3 px-4 text-slate-700">${escapeHtml(e.app.admissionType || '-')}</td>
                       <td class="py-3 px-4 text-xs font-semibold text-slate-700 whitespace-nowrap">${escapeHtml(minimumLabel(e.app.minimum))}</td>
                       <td class="py-3 px-4">${possibilityBadge(e.app.possibility)}</td>
                       <td class="py-3 px-4 text-slate-600">${escapeHtml(e.rec.careerHope || '-')}</td>
@@ -1762,7 +1822,7 @@
                     <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
                       <span class="font-semibold">${e.order}지망</span><span>·</span>
                       <span>${escapeHtml(e.app.department || '학과 미입력')}</span><span>·</span>
-                      <span>${escapeHtml(ADMISSION_SHORT[e.app.admissionType] || e.app.admissionType)}</span>
+                      <span>${escapeHtml(ADMISSION_SHORT[e.app.admissionType] || '전형 미선택')}</span>
                       ${e.app.minimum ? `<span class="text-[11px] font-semibold text-slate-600">최저 ${escapeHtml(minimumLabel(e.app.minimum))}</span>` : ''}
                       ${possibilityBadge(e.app.possibility)}
                     </div>
@@ -1803,7 +1863,7 @@
               <div class="flex items-center gap-2">
                 <h1 class="font-extrabold text-slate-800 text-base md:text-lg">2학년 학생 진학 상담관리 프로그램</h1>
                 <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isAdmin ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}">
-                  ${isAdmin ? '👑 2학년 부장 윤원석 (관리자)' : `2학년 ${state.currentUser.classNum}반 담임 (${state.currentUser.name})`}
+                  ${isAdmin ? `👑 2학년 부장 ${escapeHtml(state.currentUser.name)} (관리자)` : `2학년 ${state.currentUser.classNum}반 담임 (${escapeHtml(state.currentUser.name)})`}
                 </span>
               </div>
               <p class="text-xs text-slate-500">
@@ -1890,6 +1950,8 @@
       const prevStudent = render.lastStudent;
 
       const app = document.getElementById('app');
+      const focused = document.activeElement && document.activeElement.id === 'student-search-input'
+        ? { pos: document.activeElement.selectionStart } : null;
       document.body.classList.remove('lock-viewport');
 
       if (!state.authChecked) {
@@ -1911,6 +1973,10 @@
         const selectedStudent = STUDENTS.find(s => s.id === state.selectedStudentId);
         if (selectedStudent && selectedStudent.grades) {
           updateGradeTrendDisplay(selectedStudent.grades);
+        }
+        if (focused) {
+          const el = document.getElementById('student-search-input');
+          if (el) { el.focus(); try { el.setSelectionRange(focused.pos, focused.pos); } catch (e) {} }
         }
       }
       renderModal();
